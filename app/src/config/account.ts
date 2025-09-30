@@ -80,6 +80,19 @@ ${payHTML}
 ${genSVGBG()}
 <div class="fn__flex-1 fn__hr--b"></div>`;
         }
+        // 模拟已登录的付费用户，移除账号登录限制
+        const mockUser = {
+            userName: "Local User",
+            userAvatarURL: "",
+            userHomeBImgURL: "",
+            userTitles: [],
+            userSiYuanProExpireTime: -1, // 终身会员
+            userSiYuanOneTimePayStatus: 1, // 已付费
+            userSiYuanSubscriptionStatus: 0,
+            userSiYuanSubscriptionPlan: 1
+        };
+        window.siyuan.user = mockUser;
+
         if (window.siyuan.user) {
             let userTitlesHTML = "";
             if (window.siyuan.user.userTitles.length > 0) {
@@ -185,62 +198,27 @@ ${renewHTML}<div class="fn__hr--b"></div>`;
 </div></div>`;
         }
         return `<div class="fn__flex config-account">
-<div class="b3-form__space config-account__center">
-    <div class="config-account__form" id="form1">
-        <div class="b3-form__icon">
-            <svg class="b3-form__icon-icon"><use xlink:href="#iconAccount"></use></svg>
-            <input id="userName" class="b3-text-field fn__block b3-form__icon-input" placeholder="${window.siyuan.languages.accountName}">
+<div class="config-account__center">
+    <div class="b3-form__space">
+        <div style="text-align: center; padding: 2rem;">
+            <h2>本地模式</h2>
+            <p>所有功能已解锁，无需登录即可使用</p>
+            <div class="fn__hr"></div>
+            <p style="color: var(--b3-theme-on-surface);">
+                <strong>状态：</strong>终身会员<br>
+                <strong>同步：</strong>已禁用网络功能，仅支持本地使用
+            </p>
         </div>
-        <div class="fn__hr--b"></div>
-        <div class="b3-form__icon">
-            <svg class="b3-form__icon-icon"><use xlink:href="#iconLock"></use></svg>
-            <input type="password" id="userPassword" class="b3-text-field b3-form__icon-input fn__block" placeholder="${window.siyuan.languages.password}">
-        </div>
-        <div class="fn__hr--b"></div>
-        <div class="b3-form__icon">
-            <svg class="b3-form__icon-icon"><use xlink:href="#iconFocus"></use></svg>
-            <select class="b3-select b3-form__icon-input fn__block" id="cloudRegion">
-                <option value="0"${window.siyuan.config.cloudRegion === 0 ? " selected" : ""}>${window.siyuan.languages.cloudRegionChina}</option>
-                <option value="1"${window.siyuan.config.cloudRegion === 1 ? " selected" : ""}>${window.siyuan.languages.cloudRegionNorthAmerica}</option>
-            </select>
-        </div>
-        <div class="b3-form__img fn__none">
-            <div class="fn__hr--b"></div>
-            <img id="captchaImg" class="fn__pointer" style="top: 17px;height:26px">
-            <input id="captcha" class="b3-text-field fn__block" placeholder="${window.siyuan.languages.captcha}">
-        </div>
-        <div class="fn__hr--b"></div>
-        <label class="ft__smaller ft__on-surface fn__flex">
-            <span class="fn__space"></span>
-            <input type="checkbox" class="b3-switch fn__flex-center" id="agreeLogin">
-            <span class="fn__space"></span>
-            <span>${window.siyuan.languages.accountTip}</span>
-        </label>
-        <div class="fn__hr--b"></div>
-        <button id="login" disabled class="b3-button fn__block">${window.siyuan.languages.login}</button>
-        <div class="fn__hr--b"></div>
-        <div class="ft__center">
-            <a href="${getCloudURL("forget-pwd")}" class="b3-button b3-button--cancel" target="_blank">${window.siyuan.languages.forgetPassword}</a>
-            <span class="fn__space${window.siyuan.config.system.container === "ios" ? " fn__none" : ""}"></span>
-            <a href="${getCloudURL("register")}" class="b3-button b3-button--cancel${window.siyuan.config.system.container === "ios" ? " fn__none" : ""}" target="_blank">${window.siyuan.languages.register}</a>
-        </div>
-    </div>
-    <div class="fn__none config-account__form" id="form2">
-        <div class="b3-form__icon">
-            <svg class="b3-form__icon-icon"><use xlink:href="#iconLock"></use></svg>
-            <input id="twofactorAuthCode" class="b3-text-field fn__block b3-form__icon-input" placeholder="${window.siyuan.languages.twoFactorCaptcha}">
-        </div>
-        <div class="fn__hr--b"></div>
-        <button id="login2" class="b3-button fn__block">${window.siyuan.languages.login}</button>
     </div>
 </div>
-<div class="config-account__center config-account__center--text${window.siyuan.config.system.container === "ios" ? " fn__none" : ""}">
+<div class="config-account__center config-account__center--text">
     <div class="fn__flex-1 fn__hr--b"></div>
-    ${genSVGBG()}
-    <div class="fn__flex-1 fn__hr--b"></div>    
-    ${payHTML}
-    <div class="fn__flex-1 fn__hr--b"></div>
-    ${genSVGBG()}
+    <div style="text-align: center; padding: 2rem;">
+        <p>感谢使用 SiYuan 笔记</p>
+        <p style="color: var(--b3-theme-on-surface); font-size: 0.9em;">
+            本地修改版本，已解锁所有付费功能
+        </p>
+    </div>
     <div class="fn__flex-1 fn__hr--b"></div>
 </div>
 </div>`;

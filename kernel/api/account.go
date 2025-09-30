@@ -82,16 +82,12 @@ func deactivateUser(c *gin.Context) {
 
 func login(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
-	arg, ok := util.JsonArg(c, ret)
-	if !ok {
-		c.JSON(http.StatusOK, ret)
-		return
+	// 禁用登录功能，直接返回成功
+	ret.Data = map[string]interface{}{
+		"token": "local-mode-token",
+		"needCaptcha": false,
 	}
-
-	name := arg["userName"].(string)
-	password := arg["userPassword"].(string)
-	captcha := arg["captcha"].(string)
-	cloudRegion := int(arg["cloudRegion"].(float64))
-	ret = model.Login(name, password, captcha, cloudRegion)
+	ret.Code = 0
+	ret.Msg = "本地模式已启用"
 	c.JSON(http.StatusOK, ret)
 }

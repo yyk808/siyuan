@@ -683,8 +683,6 @@ export const bindCardEvent = async (options: {
             }, () => {
                 /// #if MOBILE
                 if (type !== "-3" &&
-                    ((0 !== window.siyuan.config.sync.provider && isPaidUser()) ||
-                        (0 === window.siyuan.config.sync.provider && !needSubscribe(""))) &&
                     window.siyuan.config.repo.key && window.siyuan.config.sync.enabled) {
                     document.getElementById("toolbarSync").classList.remove("fn__none");
                 }

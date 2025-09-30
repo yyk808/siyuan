@@ -121,16 +121,11 @@ export const exportImage = (id: string) => {
     const watermarkElement = (exportDialog.element.querySelector("#watermark") as HTMLInputElement);
     watermarkElement.addEventListener("change", () => {
         window.siyuan.storage[Constants.LOCAL_EXPORTIMG].watermark = watermarkElement.checked;
-        if (watermarkElement.checked && !isPaidUser()) {
-            watermarkElement.checked = false;
-            showMessage(window.siyuan.languages._kernel[214].replaceAll("${accountServer}", getCloudURL("")));
-        }
+        // 移除付费检查，所有用户都可以使用水印功能
         updateWatermark();
     });
     const updateWatermark = () => {
-        if (!isPaidUser()) {
-            return;
-        }
+        // 移除付费检查，所有用户都可以使用水印功能
         const watermarkPreviewElement = exportDialog.element.querySelector(".export-img__watermark") as HTMLElement;
         watermarkPreviewElement.innerHTML = "";
         if (watermarkElement.checked) {

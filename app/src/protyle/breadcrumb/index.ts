@@ -361,11 +361,10 @@ ${padHTML}
                     label: window.siyuan.languages.uploadAssets2CDN,
                     icon: "iconCloudSucc",
                     click() {
-                        if (!needSubscribe()) {
-                            confirmDialog("📦 " + window.siyuan.languages.uploadAssets2CDN, window.siyuan.languages.uploadAssets2CDNConfirmTip, () => {
-                                fetchPost("/api/asset/uploadCloud", {id: protyle.block.id});
-                            });
-                        }
+                        // 移除付费检查，所有用户都可以使用云端资源上传功能
+                        confirmDialog("📦 " + window.siyuan.languages.uploadAssets2CDN, window.siyuan.languages.uploadAssets2CDNConfirmTip, () => {
+                            fetchPost("/api/asset/uploadCloud", {id: protyle.block.id});
+                        });
                     }
                 }).element);
                 if (window.siyuan.user) { // 登录链滴账号后即可使用 `分享到链滴` https://github.com/siyuan-note/siyuan/issues/7392

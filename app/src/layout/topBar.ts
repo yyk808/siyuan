@@ -15,7 +15,7 @@ import {ipcRenderer, webFrame} from "electron";
 import {Constants} from "../constants";
 import {isBrowser, isWindow} from "../util/functions";
 import {fetchPost} from "../util/fetch";
-import {needSubscribe} from "../util/needSubscribe";
+// import {needSubscribe} from "../util/needSubscribe"; // 移除付费检查
 import * as dayjs from "dayjs";
 import {exportLayout} from "./util";
 import {commandPanel} from "../boot/globalEvent/command/panel";
@@ -38,7 +38,7 @@ export const initBar = (app: App) => {
     <svg><use xlink:href="#iconForward"></use></svg>
 </button>
 <div class="fn__flex-1 fn__ellipsis" id="drag"><span class="fn__none">开发版，使用前请进行备份 Development version, please backup before use</span></div>
-<div id="toolbarVIP" class="fn__flex${window.siyuan.config.readonly ? " fn__none" : ""}"></div>
+<!-- 移除VIP状态显示 -->
 <div id="barPlugins" class="toolbar__item ariaLabel" aria-label="${window.siyuan.languages.plugin}">
     <svg><use xlink:href="#iconPlugin"></use></svg>
 </div>
@@ -85,8 +85,8 @@ export const initBar = (app: App) => {
                     const hideElement = toolbarElement.querySelector("#" + itemId);
                     const useElement = hideElement.querySelector("use");
                     const menuOptions: IMenu = {
-                        label: itemId === "toolbarVIP" ? window.siyuan.languages.account : hideElement.getAttribute("aria-label"),
-                        icon: itemId === "toolbarVIP" ? "iconAccount" : (useElement ? useElement.getAttribute("xlink:href").substring(1) : undefined),
+                        label: hideElement.getAttribute("aria-label"),
+                        icon: useElement ? useElement.getAttribute("xlink:href").substring(1) : undefined,
                         click: () => {
                             if (itemId.startsWith("plugin")) {
                                 hideElement.dispatchEvent(new CustomEvent("click"));
@@ -167,13 +167,7 @@ export const initBar = (app: App) => {
                 window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, isLeft: true});
                 event.stopPropagation();
                 break;
-            } else if (targetId === "toolbarVIP") {
-                if (!window.siyuan.config.readonly) {
-                    const dialogSetting = openSetting(app);
-                    dialogSetting.element.querySelector('.b3-tab-bar [data-name="account"]').dispatchEvent(new CustomEvent("click"));
-                }
-                event.stopPropagation();
-                break;
+            // 移除VIP相关处理逻辑
             } else if (targetId === "barSearch") {
                 openSearch({
                     app,
@@ -237,7 +231,7 @@ export const initBar = (app: App) => {
         event.preventDefault();
         fetchPost("/api/sync/getSyncInfo", {}, (response) => {
             let html = "";
-            if (!window.siyuan.config.sync.enabled || (0 === window.siyuan.config.sync.provider && needSubscribe(""))) {
+            if (!window.siyuan.config.sync.enabled) { // 移除付费检查
                 html = response.data.stat;
             } else {
                 html = window.siyuan.languages._kernel[82].replace("%s", dayjs(response.data.synced).format("YYYY-MM-DD HH:mm")) + "<br>";

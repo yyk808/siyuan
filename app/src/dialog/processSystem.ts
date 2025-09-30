@@ -552,7 +552,7 @@ export const processSync = (data?: IWebSocketData, plugins?: Plugin[]) => {
     const menuSyncUseElement = document.querySelector("#menuSyncNow use");
     const barSyncUseElement = document.querySelector("#toolbarSync use");
     if (!data) {
-        if (!window.siyuan.config.sync.enabled || (0 === window.siyuan.config.sync.provider && needSubscribe(""))) {
+        if (!window.siyuan.config.sync.enabled) {
             menuSyncUseElement?.setAttribute("xlink:href", "#iconCloudOff");
             barSyncUseElement.setAttribute("xlink:href", "#iconCloudOff");
         } else {
@@ -583,7 +583,7 @@ export const processSync = (data?: IWebSocketData, plugins?: Plugin[]) => {
     const useElement = iconElement.querySelector("use");
     if (!data) {
         iconElement.classList.remove("toolbar__item--active");
-        if (!window.siyuan.config.sync.enabled || (0 === window.siyuan.config.sync.provider && needSubscribe(""))) {
+        if (!window.siyuan.config.sync.enabled) {
             useElement.setAttribute("xlink:href", "#iconCloudOff");
         } else {
             useElement.setAttribute("xlink:href", "#iconCloudSucc");

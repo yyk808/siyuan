@@ -359,18 +359,7 @@ ${data.shorthandContent}
 
     private update() {
         const loadingElement = this.element.querySelector(".fn__loading");
-        if (needSubscribe("")) {
-            this.element.lastElementChild.innerHTML = `<ul class="b3-list b3-list--background">
-    <li class="b3-list--empty">
-        ${window.siyuan.languages.inboxTip}
-    </li>
-    <li class="b3-list--empty">
-        ${window.siyuan.config.system.container === "ios" ? window.siyuan.languages._kernel[122] : window.siyuan.languages._kernel[29].replaceAll("${accountServer}", getCloudURL(""))}
-    </li>
-</ul>`;
-            loadingElement.classList.add("fn__none");
-            return;
-        }
+        // 移除付费检查，收件箱功能对所有用户开放
         if (!loadingElement.classList.contains("fn__none")) {
             return;
         }

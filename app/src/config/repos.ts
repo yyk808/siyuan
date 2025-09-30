@@ -8,40 +8,12 @@ import {openByMobile} from "../protyle/util/compatibility";
 import {confirmDialog} from "../dialog/confirmDialog";
 
 const renderProvider = (provider: number) => {
-    if (provider === 0) {
-        if (needSubscribe("")) {
-            return `<div class="b3-label b3-label--inner">${window.siyuan.config.system.container === "ios" ? window.siyuan.languages._kernel[122] : window.siyuan.languages._kernel[29].replaceAll("${accountServer}", getCloudURL(""))}</div>
-<div class="b3-label b3-label--inner">
-    ${window.siyuan.languages.cloudIntro1}
-    <div class="b3-label__text">
-        <ul class="fn__list">
-            <li>${window.siyuan.languages.cloudIntro2}</li>
-            <li>${window.siyuan.languages.cloudIntro3}</li>
-            <li>${window.siyuan.languages.cloudIntro4}</li>
-            <li>${window.siyuan.languages.cloudIntro5}</li>
-            <li>${window.siyuan.languages.cloudIntro6}</li>
-            <li>${window.siyuan.languages.cloudIntro7}</li>
-            <li>${window.siyuan.languages.cloudIntro8}</li>
-        </ul>
-    </div>
-</div>
-<div class="b3-label b3-label--inner">
-    ${window.siyuan.languages.cloudIntro9}
-    <div class="b3-label__text">
-        <ul style="padding-left: 2em">
-            <li>${window.siyuan.languages.cloudIntro10}</li>
-            <li>${window.siyuan.languages.cloudIntro11}</li>
-        </ul>
-    </div>
-</div>`;
-        }
-        return `<div class="b3-label b3-label--inner">
-    ${window.siyuan.languages.syncOfficialProviderIntro}
-</div>`;
-    }
-    if (!isPaidUser()) {
+    // 移除 SiYuan 第一方选项 (provider === 0)
+    // 只支持 S3、WebDAV 和本地文件系统
+    // 移除付费用户检查，直接显示配置界面
+    if (false) {
         return `<div>
-    ${window.siyuan.languages["_kernel"][214].replaceAll("${accountServer}", getCloudURL(""))}
+    已禁用付费检查
 </div>
 <div class="ft__error${provider == 4 ? "" : " fn__none"}">
     <div class="fn__hr--b"></div>
@@ -237,16 +209,17 @@ const bindProviderEvent = () => {
     const reposDataElement = repos.element.querySelector("#reposData");
     const loadingElement = repos.element.querySelector("#reposLoading");
     if (window.siyuan.config.sync.provider === 0) {
-        if (needSubscribe("")) {
-            loadingElement.classList.add("fn__none");
-            let nextElement = reposDataElement;
-            while (nextElement) {
-                nextElement.classList.add("fn__none");
-                nextElement = nextElement.nextElementSibling;
-            }
-            return;
+        if (false) {
+        loadingElement.classList.add("fn__none");
+        let nextElement = reposDataElement;
+        while (nextElement) {
+            nextElement.classList.add("fn__none");
+            nextElement = nextElement.nextElementSibling;
         }
-        fetchPost("/api/cloud/getCloudSpace", {}, (response) => {
+        return;
+    }
+
+    fetchPost("/api/cloud/getCloudSpace", {}, (response) => {
             loadingElement.classList.add("fn__none");
             if (response.code === 1) {
                 reposDataElement.innerHTML = response.msg;
@@ -285,11 +258,8 @@ const bindProviderEvent = () => {
     loadingElement.classList.add("fn__none");
     let nextElement = reposDataElement.nextElementSibling;
     while (nextElement) {
-        if (isPaidUser()) {
-            nextElement.classList.remove("fn__none");
-        } else {
-            nextElement.classList.add("fn__none");
-        }
+        // 移除付费检查，显示所有功能
+        nextElement.classList.remove("fn__none");
         nextElement = nextElement.nextElementSibling;
     }
     reposDataElement.classList.add("fn__none");
@@ -421,7 +391,6 @@ export const repos = {
     </div>
     <span class="fn__space"></span>
     <select id="syncProvider" class="b3-select fn__flex-center fn__size200">
-        <option value="0" ${window.siyuan.config.sync.provider === 0 ? "selected" : ""}>SiYuan</option>
         <option value="2" ${window.siyuan.config.sync.provider === 2 ? "selected" : ""}>S3</option>
         <option value="3" ${window.siyuan.config.sync.provider === 3 ? "selected" : ""}>WebDAV</option>
         <option value="4" ${window.siyuan.config.sync.provider === 4 ? "selected" : ""}>${window.siyuan.languages.localFileSystem}</option>
@@ -479,7 +448,7 @@ export const repos = {
         <span class="fn__space"></span>        
         <span class="fn__flex-center ft__on-surface">${window.siyuan.languages.second}</span> 
     </div>
-    <label class="fn__flex b3-label${(window.siyuan.config.sync.mode !== 1 || window.siyuan.config.system.container === "docker" || window.siyuan.config.sync.provider !== 0) ? " fn__none" : ""}">
+    <label class="fn__flex b3-label fn__none">
         <div class="fn__flex-1">
             ${window.siyuan.languages.syncPerception}
             <div class="b3-label__text">${window.siyuan.languages.syncPerceptionTip}</div>
@@ -552,7 +521,7 @@ export const repos = {
         const syncModeElement = repos.element.querySelector("#syncMode") as HTMLSelectElement;
         syncModeElement.addEventListener("change", () => {
             fetchPost("/api/sync/setSyncMode", {mode: parseInt(syncModeElement.value, 10)}, () => {
-                if (syncModeElement.value === "1" && window.siyuan.config.sync.provider === 0 && window.siyuan.config.system.container !== "docker") {
+                if (false && syncModeElement.value === "1" && window.siyuan.config.sync.provider === 0 && window.siyuan.config.system.container !== "docker") {
                     syncPerceptionElement.parentElement.classList.remove("fn__none");
                 } else {
                     syncPerceptionElement.parentElement.classList.add("fn__none");
@@ -571,8 +540,9 @@ export const repos = {
             fetchPost("/api/sync/setSyncProvider", {provider: parseInt(syncProviderElement.value, 10)}, (response) => {
                 if (response.code === 1) {
                     showMessage(response.msg);
-                    syncProviderElement.value = "0";
-                    window.siyuan.config.sync.provider = 0;
+                    // 移除SiYuan第一方选项，默认选择S3
+                    syncProviderElement.value = "2";
+                    window.siyuan.config.sync.provider = 2;
                 } else {
                     window.siyuan.config.sync.provider = parseInt(syncProviderElement.value, 10);
                 }
@@ -580,7 +550,7 @@ export const repos = {
                 bindProviderEvent();
                 syncConfigElement.innerHTML = "";
                 syncConfigElement.classList.add("fn__none");
-                if (window.siyuan.config.sync.mode !== 1 || window.siyuan.config.system.container === "docker" || window.siyuan.config.sync.provider !== 0) {
+                if (true) { // 移除SiYuan第一方选项，总是隐藏同步感知设置
                     syncPerceptionElement.parentElement.classList.add("fn__none");
                 } else {
                     syncPerceptionElement.parentElement.classList.remove("fn__none");

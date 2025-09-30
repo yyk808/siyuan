@@ -165,15 +165,7 @@ export const openSearchAsset = (element: HTMLElement, isStick: boolean) => {
 let inputTimeout: number;
 export const assetInputEvent = (element: Element, localSearch?: ISearchAssetOption, page = 1) => {
     const loadingElement = element.parentElement.querySelector(".fn__loading--top");
-    if (!isPaidUser()) {
-        loadingElement.classList.add("fn__none");
-        element.querySelector(".search__drag")?.classList.add("fn__none");
-        element.querySelector("#searchAssetPreview").classList.add("fn__none");
-        element.querySelector("#searchAssetList").innerHTML = `<div class="search__empty">
-    ${window.siyuan.languages["_kernel"][214].replaceAll("${accountServer}", getCloudURL(""))}
-</div>`;
-        return;
-    }
+    // 移除付费检查，所有用户都可以使用资源搜索功能
     loadingElement.classList.remove("fn__none");
     clearTimeout(inputTimeout);
     inputTimeout = window.setTimeout(() => {
@@ -449,10 +441,7 @@ export const assetMoreMenu = (target: Element, element: Element, cb: () => void)
         iconHTML: "",
         label: window.siyuan.languages.rebuildIndex,
         click() {
-            if (!isPaidUser()) {
-                showMessage(window.siyuan.languages["_kernel"][214].replaceAll("${accountServer}", getCloudURL("")));
-                return;
-            }
+            // 移除付费检查，所有用户都可以重建索引
             element.parentElement.querySelector(".fn__loading--top").classList.remove("fn__none");
             fetchPost("/api/asset/fullReindexAssetContent", {}, () => {
                 assetInputEvent(element, localData);

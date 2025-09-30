@@ -478,10 +478,7 @@ const renderPDF = async (id: string) => {
         });
         const  watermarkElement = actionElement.querySelector('#watermark');
         watermarkElement.addEventListener('change', () => {
-            if (watermarkElement.checked && ${!isPaidUser()}) {
-                watermarkElement.nextElementSibling.style.display = "";
-                watermarkElement.checked = false;
-            }
+            // 移除付费检查，所有用户都可以使用水印功能
         });
         const refreshPreview = () => {
             previewElement.innerHTML = '<div class="fn__loading" style="left:0;height: 100vh"><img width="48px" src="${servePath}/stage/loading-pure.svg"></div>'

@@ -149,32 +149,17 @@ export const syncGuide = (app?: App) => {
         return;
     }
     /// #if MOBILE
+    // 移除付费检查，所有同步功能可用
     if (0 === window.siyuan.config.sync.provider) {
-        if (needSubscribe()) {
-            return;
-        }
-    } else if (!isPaidUser()) {
-        showMessage(window.siyuan.languages["_kernel"][214].replaceAll("${accountServer}", getCloudURL("")));
-        return;
+        // 本地同步，无需付费检查
+    } else {
+        // 云端同步，移除付费检查
     }
     /// #else
     if (document.querySelector("#barSync")?.classList.contains("toolbar__item--active")) {
         return;
     }
-    if (0 === window.siyuan.config.sync.provider && needSubscribe("") && app) {
-        const dialogSetting = openSetting(app);
-        if (window.siyuan.user) {
-            dialogSetting.element.querySelector('.b3-tab-bar [data-name="repos"]').dispatchEvent(new CustomEvent("click"));
-        } else {
-            dialogSetting.element.querySelector('.b3-tab-bar [data-name="account"]').dispatchEvent(new CustomEvent("click"));
-            dialogSetting.element.querySelector('.config__tab-container[data-name="account"]').setAttribute("data-action", "go-repos");
-        }
-        return;
-    }
-    if (0 !== window.siyuan.config.sync.provider && !isPaidUser() && app) {
-        showMessage(window.siyuan.languages["_kernel"][214].replaceAll("${accountServer}", getCloudURL("")));
-        return;
-    }
+    // 移除付费检查，直接启用同步功能
     /// #endif
     if (!window.siyuan.config.repo.key) {
         setKey(true);

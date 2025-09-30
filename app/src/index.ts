@@ -58,6 +58,17 @@ export class App {
             blockPanels: [],
             ctrlIsPressed: false,
             altIsPressed: false,
+            // 模拟已登录的付费用户
+            user: {
+                userName: "Local User",
+                userAvatarURL: "",
+                userHomeBImgURL: "",
+                userTitles: [],
+                userSiYuanProExpireTime: -1, // 终身会员
+                userSiYuanOneTimePayStatus: 1, // 已付费
+                userSiYuanSubscriptionStatus: 0,
+                userSiYuanSubscriptionPlan: 1
+            },
             ws: new Model({
                 app: this,
                 id: genUUID(),

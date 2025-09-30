@@ -199,9 +199,7 @@ export class Preview {
     }
 
     private link2online(copyElement: HTMLElement) {
-        if (needSubscribe("")) {
-            return;
-        }
+        // 移除付费检查，允许复制在线资源链接
         copyElement.querySelectorAll("[href],[src]").forEach(item => {
             const oldLink = item.getAttribute("href") || item.getAttribute("src");
             if (oldLink && oldLink.startsWith("assets/")) {
