@@ -4,7 +4,7 @@ import {Constants} from "../constants";
 export const initMessage = () => {
     const messageElement = document.getElementById("message");
     if (!messageElement) {
-        console.warn('[initMessage] #message element not found');
+        console.error('[initMessage] #message element not found');
         return;
     }
 
@@ -49,9 +49,50 @@ export const initMessage = () => {
 
 // type: info/error; timeout: 0 手动关闭；-1 永不关闭
 export const showMessage = (message: string, timeout = 6000, type = "info", messageId?: string) => {
-    const messagesElement = document.getElementById("message").firstElementChild;
+    // 尝试获取消息容器
+    let messagesElement = document.getElementById("message")?.firstElementChild;
+
+    // 如果容器不存在或为空，尝试自动初始化
     if (!messagesElement) {
-        console.log(`[showMessage] Message container not ready, using tempMessages. timeout: ${timeout}, type: ${type}`);
+        console.warn(`[showMessage] Message container not available, attempting auto-initialization`);
+        const messageContainer = document.getElementById("message");
+        if (messageContainer) {
+            // 自动初始化消息容器
+            messageContainer.innerHTML = '<div class="fn__flex-1"></div>';
+            messagesElement = messageContainer.firstElementChild;
+            console.log(`[showMessage] Auto-initialized message container`);
+
+            // 添加事件监听器
+            messageContainer.addEventListener("click", (event) => {
+                let target = event.target as HTMLElement;
+                while (target && !target.isEqualNode(messageContainer)) {
+                    if (target.classList.contains("b3-snackbar__close")) {
+                        hideMessage(target.parentElement.getAttribute("data-id"));
+                        event.preventDefault();
+                        break;
+                    } else if (target.tagName === "A" || target.tagName === "BUTTON") {
+                        break;
+                    } else if (target.classList.contains("b3-snackbar")) {
+                        if (getSelection().rangeCount === 0 || !getSelection().getRangeAt(0).toString()) {
+                            hideMessage(target.getAttribute("data-id"));
+                        }
+                        event.preventDefault();
+                        event.stopPropagation();
+                        break;
+                    }
+                    target = target.parentElement;
+                }
+            });
+
+            console.log(`[showMessage] Added event listener to message container`);
+        } else {
+            console.error(`[showMessage] Cannot find message container for auto-initialization`);
+        }
+    }
+
+    // 如果仍然没有容器，使用 tempMessage 作为后备方案
+    if (!messagesElement) {
+        console.log(`[showMessage] Fallback to tempMessages. timeout: ${timeout}, type: ${type}`);
         let tempMessages = document.getElementById("tempMessage");
         if (!tempMessages) {
             document.body.insertAdjacentHTML("beforeend", `<div style="font-size: 14px;top: 22px;position: fixed;z-index: 100;right: 30px;line-height: 20px;word-break: break-word;display: flex;flex-direction: column;align-items: flex-end;"
@@ -60,7 +101,7 @@ id="tempMessage"></div>`);
         }
         const tempId = messageId || genUUID();
         const messageDiv = document.createElement("div");
-        messageDiv.style.cssText = "background: white;padding: 8px 16px;border-radius: 6px;margin-bottom: 16px;cursor: pointer;";
+        messageDiv.style.cssText = "background: var(--b3-tooltips-background, rgba(30, 30, 30, 0.95));padding: 8px 16px;border-radius: 6px;margin-bottom: 16px;cursor: pointer;color: var(--b3-theme-on-primary, #fff);box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);";
         messageDiv.setAttribute("data-timeout", timeout.toString());
         messageDiv.setAttribute("data-type", type);
         messageDiv.setAttribute("data-message-id", tempId);

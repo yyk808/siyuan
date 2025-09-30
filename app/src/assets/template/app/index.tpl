@@ -33,7 +33,9 @@
     </div>
     <div class="b3-menu__items"></div>
 </div>
-<div id="message" class="b3-snackbars"></div>
+<div id="message" class="b3-snackbars">
+    <div class="fn__flex-1"></div>
+</div>
 <div id="tooltip" class="tooltip fn__none"></div>
 <script>
     setTimeout(() => {
