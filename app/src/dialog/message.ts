@@ -3,6 +3,11 @@ import {Constants} from "../constants";
 
 export const initMessage = () => {
     const messageElement = document.getElementById("message");
+    if (!messageElement) {
+        console.warn('[initMessage] #message element not found');
+        return;
+    }
+
     messageElement.innerHTML = '<div class="fn__flex-1"></div>';
     messageElement.addEventListener("click", (event) => {
         let target = event.target as HTMLElement;
@@ -25,27 +30,59 @@ export const initMessage = () => {
         }
     });
 
-    document.querySelectorAll("#tempMessage > div").forEach((item) => {
-        showMessage(item.innerHTML, parseInt(item.getAttribute("data-timeout")), item.getAttribute("data-type"), item.getAttribute("data-message-id"));
-        item.remove();
-    });
+    // 处理在初始化之前就存在的 tempMessages
+    const tempMessages = document.getElementById("tempMessage");
+    if (tempMessages) {
+        const tempItems = tempMessages.querySelectorAll("div");
+        if (tempItems.length > 0) {
+            console.log(`[initMessage] Processing ${tempItems.length} temp messages`);
+            tempItems.forEach((item) => {
+                const timeout = parseInt(item.getAttribute("data-timeout")) || 6000;
+                const type = item.getAttribute("data-type") || "info";
+                const messageId = item.getAttribute("data-message-id");
+                showMessage(item.innerHTML, timeout, type, messageId);
+                item.remove();
+            });
+        }
+    }
 };
 
 // type: info/error; timeout: 0 手动关闭；-1 永不关闭
 export const showMessage = (message: string, timeout = 6000, type = "info", messageId?: string) => {
     const messagesElement = document.getElementById("message").firstElementChild;
     if (!messagesElement) {
+        console.log(`[showMessage] Message container not ready, using tempMessages. timeout: ${timeout}, type: ${type}`);
         let tempMessages = document.getElementById("tempMessage");
         if (!tempMessages) {
-            document.body.insertAdjacentHTML("beforeend", `<div style="font-size: 14px;top: 22px;position: fixed;z-index: 100;right: 30px;line-height: 20px;word-break: break-word;display: flex;flex-direction: column;align-items: flex-end;" 
+            document.body.insertAdjacentHTML("beforeend", `<div style="font-size: 14px;top: 22px;position: fixed;z-index: 100;right: 30px;line-height: 20px;word-break: break-word;display: flex;flex-direction: column;align-items: flex-end;"
 id="tempMessage"></div>`);
             tempMessages = document.getElementById("tempMessage");
         }
-        tempMessages.insertAdjacentHTML("beforeend", `<div style="background: white;padding: 8px 16px;border-radius: 6px;margin-bottom: 16px;"  
-data-timeout="${timeout}" 
-data-type="${type}" 
-data-message-id="${messageId || ""}">${message}</div>`);
-        return;
+        const tempId = messageId || genUUID();
+        const messageDiv = document.createElement("div");
+        messageDiv.style.cssText = "background: white;padding: 8px 16px;border-radius: 6px;margin-bottom: 16px;cursor: pointer;";
+        messageDiv.setAttribute("data-timeout", timeout.toString());
+        messageDiv.setAttribute("data-type", type);
+        messageDiv.setAttribute("data-message-id", tempId);
+        messageDiv.innerHTML = message;
+
+        // 添加点击事件，点击时隐藏消息
+        messageDiv.addEventListener("click", () => {
+            messageDiv.remove();
+        });
+
+        tempMessages.appendChild(messageDiv);
+
+        // 设置自动隐藏定时器
+        if (timeout > 0) {
+            setTimeout(() => {
+                if (document.body.contains(messageDiv)) {
+                    messageDiv.remove();
+                }
+            }, timeout);
+        }
+
+        return tempId;
     }
     const id = messageId || genUUID();
     const existElement = messagesElement.querySelector(`.b3-snackbar[data-id="${id}"]`);
