@@ -1027,7 +1027,7 @@ func CreateDocByMd(boxID, p, title, md string, sorts []string) (tree *parse.Tree
 	if 0 < len(sorts) {
 		ChangeFileTreeSort(box.ID, sorts)
 	} else {
-		box.addMinSort(path.Dir(tree.Path), tree.ID)
+		box.addMaxSort(path.Dir(tree.Path), tree.ID)
 	}
 	return
 }
@@ -2001,6 +2001,51 @@ func (box *Box) addMinSort(parentPath, id string) {
 	sortVal := 0
 	if 0 < len(docs) {
 		sortVal = docs[0].Sort - 1
+	}
+
+	confDir := filepath.Join(util.DataDir, box.ID, ".siyuan")
+	if err = os.MkdirAll(confDir, 0755); err != nil {
+		logging.LogErrorf("create conf dir failed: %s", err)
+		return
+	}
+	confPath := filepath.Join(confDir, "sort.json")
+	fullSortIDs := map[string]int{}
+	var data []byte
+	if filelock.IsExist(confPath) {
+		data, err = filelock.ReadFile(confPath)
+		if err != nil {
+			logging.LogErrorf("read sort conf failed: %s", err)
+			return
+		}
+
+		if err = gulu.JSON.UnmarshalJSON(data, &fullSortIDs); err != nil {
+			logging.LogErrorf("unmarshal sort conf failed: %s", err)
+		}
+	}
+
+	fullSortIDs[id] = sortVal
+
+	data, err = gulu.JSON.MarshalJSON(fullSortIDs)
+	if err != nil {
+		logging.LogErrorf("marshal sort conf failed: %s", err)
+		return
+	}
+	if err = filelock.WriteFile(confPath, data); err != nil {
+		logging.LogErrorf("write sort conf failed: %s", err)
+		return
+	}
+}
+
+func (box *Box) addMaxSort(parentPath, id string) {
+	docs, _, err := ListDocTree(box.ID, parentPath, util.SortModeUnassigned, false, false, 1024)
+	if err != nil {
+		logging.LogErrorf("list doc tree failed: %s", err)
+		return
+	}
+
+	sortVal := 0
+	if 0 < len(docs) {
+		sortVal = docs[len(docs)-1].Sort + 1
 	}
 
 	confDir := filepath.Join(util.DataDir, box.ID, ".siyuan")
