@@ -289,13 +289,7 @@ func CheckUpdate(showMsg bool) {
 	}
 	if showMsg {
 		util.PushMsg(msg, timeout)
-		go func() {
-			defer logging.Recover()
-			checkDownloadInstallPkg()
-			if "" != getNewVerInstallPkgPath() {
-				util.PushMsg(Conf.Language(62), 15*1000)
-			}
-		}()
+		// 仅检查更新并弹出提示，不自动下载安装包
 	}
 }
 
