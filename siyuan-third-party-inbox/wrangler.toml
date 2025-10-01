@@ -1,0 +1,25 @@
+name = "siyuan-third-party-inbox"
+main = "src/index.ts"
+compatibility_date = "2023-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables
+[vars]
+# CORS origins (comma separated)
+CORS_ORIGINS = "*"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "siyuan_inbox"
+database_name = "siyuan-inbox"
+database_id = "90b37efc-e7b4-445b-83c1-1b017c0ab13f"
+
+# Environment-specific configurations
+[env.development]
+name = "siyuan-inbox-dev"
+
+[env.production]
+name = "siyuan-inbox"
+
+# Secrets (to be set via: wrangler secret put BEARER_TOKEN)
+# BEARER_TOKEN: Your authentication token

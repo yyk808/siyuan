@@ -1,0 +1,39 @@
+{
+  "name": "siyuan-third-party-inbox",
+  "version": "1.0.0",
+  "description": "Third-party inbox service for SiYuan Notes based on Cloudflare Worker",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "d1:create": "wrangler d1 create siyuan-inbox",
+    "d1:migrate": "wrangler d1 migrations apply siyuan-inbox",
+    "d1:preview": "wrangler d1 migrations list siyuan-inbox",
+    "build": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "siyuan",
+    "inbox",
+    "cloudflare-worker",
+    "d1"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231025.0",
+    "@types/node": "^20.8.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.49.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2",
+    "wrangler": "^4.40.3"
+  },
+  "dependencies": {
+    "dompurify": "^3.0.5",
+    "marked": "^9.0.3"
+  }
+}
