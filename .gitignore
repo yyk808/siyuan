@@ -30,6 +30,7 @@ electron/dist
 .vscode/
 .claude/
 .qwen/
+.kilocode/
 
 # Log
 logs
