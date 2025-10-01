@@ -747,3 +747,46 @@ func setCloudSyncDir(c *gin.Context) {
 	name := arg["name"].(string)
 	model.SetCloudSyncDir(name)
 }
+
+func setThirdPartyInbox(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	configArg := arg["config"].(map[string]interface{})
+	config := &conf.ThirdPartyInbox{
+		Enabled:      configArg["enabled"].(bool),
+		ServerURL:    configArg["serverUrl"].(string),
+		Token:        configArg["token"].(string),
+		SyncInterval: int(configArg["syncInterval"].(float64)),
+	}
+
+	model.SetThirdPartyInbox(config)
+}
+
+func testThirdPartyInbox(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	serverURL := arg["serverUrl"].(string)
+	token := arg["token"].(string)
+
+	// 简单的连接测试，尝试调用第三方服务的健康检查接口
+	result, err := model.TestThirdPartyInbox(serverURL, token)
+	if err != nil {
+		ret.Code = 1
+		ret.Msg = "连接测试失败: " + err.Error()
+		return
+	}
+
+	ret.Data = result
+}

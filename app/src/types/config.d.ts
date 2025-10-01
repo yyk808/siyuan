@@ -1398,6 +1398,10 @@ declare namespace Config {
         synced: number;
         webdav: ISyncWebDAV;
         local: ISyncLocal;
+        /**
+         * Third party inbox service configuration
+         */
+        thirdPartyInbox: ISyncThirdPartyInbox;
     }
 
     /**
@@ -2378,5 +2382,27 @@ declare namespace Config {
      * - `right`: Right panel
      */
     export type TUILayoutType = "normal" | "center" | "top" | "bottom" | "left" | "right";
+
+    /**
+     * Third party inbox service configuration
+     */
+    export interface ISyncThirdPartyInbox {
+        /**
+         * Whether to enable third party inbox service
+         */
+        enabled: boolean;
+        /**
+         * Third party inbox server URL
+         */
+        serverUrl: string;
+        /**
+         * Access token for third party inbox service
+         */
+        token: string;
+        /**
+         * Sync interval in minutes
+         */
+        syncInterval: number;
+    }
 
 }

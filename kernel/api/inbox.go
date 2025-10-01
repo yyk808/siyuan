@@ -40,11 +40,21 @@ func removeShorthands(c *gin.Context) {
 		ids = append(ids, id.(string))
 	}
 
-	err := model.RemoveCloudShorthands(ids)
-	if err != nil {
-		ret.Code = 1
-		ret.Msg = err.Error()
-		return
+	// 检查是否启用第三方收件箱
+	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		err := model.RemoveThirdPartyShorthands(ids)
+		if err != nil {
+			ret.Code = 1
+			ret.Msg = err.Error()
+			return
+		}
+	} else {
+		err := model.RemoveCloudShorthands(ids)
+		if err != nil {
+			ret.Code = 1
+			ret.Msg = err.Error()
+			return
+		}
 	}
 }
 
@@ -58,7 +68,16 @@ func getShorthand(c *gin.Context) {
 	}
 
 	id := arg["id"].(string)
-	data, err := model.GetCloudShorthand(id)
+	var data map[string]interface{}
+	var err error
+
+	// 检查是否启用第三方收件箱
+	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		data, err = model.GetThirdPartyShorthand(id)
+	} else {
+		data, err = model.GetCloudShorthand(id)
+	}
+
 	if err != nil {
 		ret.Code = 1
 		ret.Msg = err.Error()
@@ -77,7 +96,16 @@ func getShorthands(c *gin.Context) {
 	}
 
 	page := int(arg["page"].(float64))
-	data, err := model.GetCloudShorthands(page)
+	var data map[string]interface{}
+	var err error
+
+	// 检查是否启用第三方收件箱
+	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		data, err = model.GetThirdPartyShorthands(page)
+	} else {
+		data, err = model.GetCloudShorthands(page)
+	}
+
 	if err != nil {
 		ret.Code = 1
 		ret.Msg = err.Error()

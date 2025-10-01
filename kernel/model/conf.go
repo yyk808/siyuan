@@ -382,6 +382,15 @@ func InitConf() {
 	Conf.Sync.Local.Timeout = util.NormalizeTimeout(Conf.Sync.Local.Timeout)
 	Conf.Sync.Local.ConcurrentReqs = util.NormalizeConcurrentReqs(Conf.Sync.Local.ConcurrentReqs, conf.ProviderLocal)
 
+	if nil == Conf.Sync.ThirdPartyInbox {
+		Conf.Sync.ThirdPartyInbox = &conf.ThirdPartyInbox{
+			Enabled:      false,
+			ServerURL:    "",
+			Token:        "",
+			SyncInterval: 30,
+		}
+	}
+
 	if util.ContainerDocker == util.Container {
 		Conf.Sync.Perception = false
 	}

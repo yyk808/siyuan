@@ -914,3 +914,60 @@ func dialSyncWebSocket() (c *websocket.Conn, err error) {
 	}
 	return
 }
+
+func SetThirdPartyInbox(config *conf.ThirdPartyInbox) (err error) {
+	Conf.Sync.ThirdPartyInbox = config
+	Conf.Save()
+	return
+}
+
+func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}, err error) {
+	// 简单的连接测试实现
+	// 这里可以发送一个测试请求到第三方服务
+	// 暂时返回成功结果用于前端开发测试
+
+	// TODO: 实现真实的第三方服务连接测试
+	// 可以发送一个GET请求到 {serverURL}/health 或类似的健康检查端点
+
+	result = map[string]interface{}{
+		"status":  "success",
+		"message": "连接测试成功",
+	}
+	return
+}
+
+func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) {
+	// TODO: 实现真实的第三方收件箱数据获取
+	// 这里应该调用第三方服务的API获取收件箱列表
+
+	// 暂时返回空数据用于前端开发测试
+	data = map[string]interface{}{
+		"code": 0,
+		"msg":  "success",
+		"data": map[string]interface{}{
+			"shorthands": []interface{}{},
+			"pagination": map[string]interface{}{
+				"paginationPageCount": 1,
+				"paginationRecordCount": 0,
+			},
+		},
+	}
+	return
+}
+
+func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) {
+	// TODO: 实现真实的第三方收件箱单个数据获取
+	// 这里应该调用第三方服务的API获取单个收件箱项
+
+	// 暂时返回空数据用于前端开发测试
+	err = fmt.Errorf("收件箱项不存在")
+	return
+}
+
+func RemoveThirdPartyShorthands(ids []string) (err error) {
+	// TODO: 实现真实的第三方收件箱删除功能
+	// 这里应该调用第三方服务的API删除收件箱项
+
+	// 暂时返回成功用于前端开发测试
+	return
+}
