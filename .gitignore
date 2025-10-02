@@ -31,6 +31,7 @@ electron/dist
 .claude/
 .qwen/
 .kilocode/
+CLAUDE.md
 
 # Log
 logs

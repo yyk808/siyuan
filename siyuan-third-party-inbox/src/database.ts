@@ -134,7 +134,7 @@ export class Database {
             throw new Error('Failed to delete shorthands');
         }
 
-        // Cloudflare D1 的 changes 在 meta 中
+        // Cloudflare D1 stores changes in meta
         return (result as any).meta?.changes || 0;
     }
 

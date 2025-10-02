@@ -389,12 +389,12 @@ export const repos = {
     <div class="layout-tab-bar fn__flex">
         <div data-type="syncProvider" class="item item--full item--focus">
             <span class="fn__flex-1"></span>
-            <span class="item__text">同步存储</span>
+            <span class="item__text">${window.siyuan.languages.syncStorage || "同步存储"}</span>
             <span class="fn__flex-1"></span>
         </div>
         <div data-type="thirdPartyInbox" class="item item--full">
             <span class="fn__flex-1"></span>
-            <span class="item__text">第三方收件箱</span>
+            <span class="item__text">${window.siyuan.languages.thirdPartyInbox}</span>
             <span class="fn__flex-1"></span>
         </div>
     </div>
@@ -497,8 +497,8 @@ export const repos = {
     <div class="config-repos__panel fn__none" data-type="thirdPartyInbox">
         <label class="fn__flex b3-label">
             <div class="fn__flex-1">
-                第三方收件箱服务
-                <div class="b3-label__text">启用后，收件箱数据将同步到第三方服务，而不是思源官方云端。请确保第三方服务兼容思源收件箱API格式。</div>
+                ${window.siyuan.languages.thirdPartyInboxService}
+                <div class="b3-label__text">${window.siyuan.languages.thirdPartyInboxDesc}</div>
             </div>
             <span class="fn__space"></span>
             <input type="checkbox" id="thirdPartyInboxEnabled" ${window.siyuan.config.sync.thirdPartyInbox?.enabled || false ? "checked" : ""} class="b3-switch fn__flex-center">
@@ -506,8 +506,8 @@ export const repos = {
 
         <div class="fn__flex b3-label config__item">
             <div class="fn__flex-1">
-                服务器地址
-                <div class="b3-label__text">第三方收件箱服务器的完整URL地址</div>
+                ${window.siyuan.languages.serverUrl}
+                <div class="b3-label__text">${window.siyuan.languages.serverUrlTip}</div>
             </div>
             <span class="fn__space"></span>
             <input id="thirdPartyInboxServerURL" class="b3-text-field fn__flex-center fn__size200" type="url"
@@ -517,22 +517,22 @@ export const repos = {
 
         <div class="fn__flex b3-label config__item">
             <div class="fn__flex-1">
-                访问令牌
-                <div class="b3-label__text">用于身份验证的访问令牌</div>
+                ${window.siyuan.languages.accessToken}
+                <div class="b3-label__text">${window.siyuan.languages.accessTokenTip}</div>
             </div>
             <span class="fn__space"></span>
             <div class="b3-form__icona fn__size200">
                 <input id="thirdPartyInboxToken" type="password" class="b3-text-field b3-form__icona-input"
                        value="${window.siyuan.config.sync.thirdPartyInbox?.token || ''}"
-                       placeholder="输入访问令牌">
+                       placeholder="输入${window.siyuan.languages.accessToken}">
                 <svg class="b3-form__icona-icon" data-action="toggleThirdPartyInboxPassword"><use xlink:href="#iconEye"></use></svg>
             </div>
         </div>
 
         <div class="fn__flex b3-label config__item">
             <div class="fn__flex-1">
-                同步间隔（分钟）
-                <div class="b3-label__text">检查收件箱的间隔时间，建议设置为5-30分钟</div>
+                ${window.siyuan.languages.syncIntervalMinutes}
+                <div class="b3-label__text">${window.siyuan.languages.syncIntervalDesc}</div>
             </div>
             <span class="fn__space"></span>
             <input id="thirdPartyInboxSyncInterval" class="b3-text-field fn__flex-center fn__size200" type="number"
@@ -543,9 +543,9 @@ export const repos = {
         <div class="fn__flex b3-label config__item">
             <div class="fn__flex-1"></div>
             <span class="fn__space"></span>
-            <button id="testThirdPartyInboxConnection" class="b3-button fn__flex-center fn__size200">测试连接</button>
+            <button id="testThirdPartyInboxConnection" class="b3-button fn__flex-center fn__size200">${window.siyuan.languages.testConnection}</button>
             <div class="fn__space"></div>
-            <button id="saveThirdPartyInboxConfig" class="b3-button fn__flex-center fn__size200">保存配置</button>
+            <button id="saveThirdPartyInboxConfig" class="b3-button fn__flex-center fn__size200">${window.siyuan.languages.saveConfig}</button>
         </div>
     </div>
   </div>`;
@@ -679,26 +679,26 @@ export const repos = {
                 };
 
                 if (config.enabled && (!config.serverUrl || !config.token)) {
-                    showMessage("请填写服务器地址和访问令牌");
+                    showMessage(window.siyuan.languages.fillServerAndToken);
                     return;
                 }
 
                 if (config.serverUrl && !isValidUrl(config.serverUrl)) {
-                    showMessage("请输入有效的服务器地址URL");
+                    showMessage(window.siyuan.languages.validServerUrl);
                     return;
                 }
 
                 if (config.syncInterval < 1 || config.syncInterval > 1440) {
-                    showMessage("同步间隔必须在1-1440分钟之间");
+                    showMessage(window.siyuan.languages.syncIntervalRange);
                     return;
                 }
 
                 fetchPost("/api/sync/setThirdPartyInbox", {config}, (response) => {
                     if (response.code === 0) {
-                        showMessage("配置保存成功");
+                        showMessage(window.siyuan.languages.configSaveSuccess);
                         window.siyuan.config.sync.thirdPartyInbox = config;
                     } else {
-                        showMessage("配置保存失败: " + response.msg);
+                        showMessage(window.siyuan.languages.configSaveFailed + ": " + response.msg);
                     }
                 });
             });
@@ -710,21 +710,21 @@ export const repos = {
                 const token = (repos.element.querySelector("#thirdPartyInboxToken") as HTMLInputElement).value.trim();
 
                 if (!serverUrl || !token) {
-                    showMessage("请先填写服务器地址和访问令牌");
+                    showMessage(window.siyuan.languages.fillServerAndTokenFirst);
                     return;
                 }
 
                 if (!isValidUrl(serverUrl)) {
-                    showMessage("请输入有效的服务器地址URL");
+                    showMessage(window.siyuan.languages.validServerUrl);
                     return;
                 }
 
-                showMessage("正在测试连接...");
+                showMessage(window.siyuan.languages.testingConnection);
                 fetchPost("/api/sync/testThirdPartyInbox", {serverUrl, token}, (response) => {
                     if (response.code === 0) {
-                        showMessage("连接测试成功");
+                        showMessage(window.siyuan.languages.connectionTestSuccess);
                     } else {
-                        showMessage("连接测试失败: " + response.msg);
+                        showMessage(window.siyuan.languages.connectionTestFailed + ": " + response.msg);
                     }
                 });
             });

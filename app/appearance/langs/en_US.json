@@ -1673,6 +1673,27 @@
     "271": "Data index optimization completed, [%s] disk space freed",
     "272": "Unnamed field",
     "273": "Do not create the workspace in the partition root path, please create a new folder as the workspace",
-    "274": "This folder contains other files, please create a new folder as the workspace"
+    "274": "This folder contains other files, please create a new folder as the workspace",
+    "thirdPartyInbox": "Third-Party Inbox",
+    "thirdPartyInboxService": "Third-Party Inbox Service",
+    "serverUrl": "Server URL",
+    "serverUrlTip": "Complete URL address of the third-party inbox server",
+    "accessToken": "Access Token",
+    "accessTokenTip": "Access token for authentication",
+    "testConnection": "Test Connection",
+    "saveConfig": "Save Configuration",
+    "configSaved": "Configuration saved",
+    "connectionTestFailed": "Connection test failed",
+    "connectionTestSuccess": "Connection test successful",
+    "fillServerAndToken": "Please fill in server URL and access token",
+    "validServerUrl": "Please enter a valid server URL",
+    "syncIntervalRange": "Sync interval must be between 1-1440 minutes",
+    "configSaveSuccess": "Configuration saved successfully",
+    "configSaveFailed": "Configuration save failed",
+    "fillServerAndTokenFirst": "Please fill in server URL and access token first",
+    "testingConnection": "Testing connection...",
+    "thirdPartyInboxDesc": "When enabled, inbox data will sync to a third-party service instead of SiYuan's official cloud. Please ensure the third-party service is compatible with SiYuan's inbox API format.",
+    "syncIntervalDesc": "Interval time to check inbox, recommended to set between 5-30 minutes",
+    "syncIntervalMinutes": "Sync Interval (minutes)"
   }
 }

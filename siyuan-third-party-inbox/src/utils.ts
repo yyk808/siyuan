@@ -55,9 +55,9 @@ export function generateDescription(content: string, maxLength: number = 200): s
 
     // Replace media placeholders
     const processedText = textContent
-        .replace(/<audio.*>.*<\/audio>/gi, ' 语音 ')
-        .replace(/<video.*>.*<\/video>/gi, ' 视频 ')
-        .replace(/\[文件]\(.*\)/gi, ' 文件 ')
+        .replace(/<audio.*>.*<\/audio>/gi, ' [audio] ')
+        .replace(/<video.*>.*<\/video>/gi, ' [video] ')
+        .replace(/\[file]\(.*\)/gi, ' [file] ')
         .replace(/\n\n/g, ' ');
 
     // Truncate to max length

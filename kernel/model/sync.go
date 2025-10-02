@@ -928,12 +928,12 @@ func SetThirdPartyInbox(config *conf.ThirdPartyInbox) (err error) {
 
 func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}, err error) {
 	if serverURL == "" {
-		err = errors.New("服务器地址不能为空")
+		err = errors.New("Server URL cannot be empty")
 		return
 	}
 
 	if token == "" {
-		err = errors.New("访问令牌不能为空")
+		err = errors.New("Access token cannot be empty")
 		return
 	}
 
@@ -947,17 +947,17 @@ func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}
 
 	if err != nil {
 		logging.LogErrorf("test third party inbox connection failed: %s", err)
-		err = errors.New("连接失败，请检查服务器地址")
+		err = errors.New("Connection failed, please check server URL")
 		return
 	}
 
 	if 401 == resp.StatusCode {
-		err = errors.New("认证失败，请检查访问令牌")
+		err = errors.New("Authentication failed, please check access token")
 		return
 	}
 
 	if resp.StatusCode != 200 {
-		err = errors.New(fmt.Sprintf("服务器返回错误状态码: %d", resp.StatusCode))
+		err = errors.New(fmt.Sprintf("Server returned error status code: %d", resp.StatusCode))
 		return
 	}
 
@@ -971,7 +971,7 @@ func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}
 	// 检查健康状态
 	if healthData, ok := healthResult["data"].(map[string]interface{}); ok {
 		if status, ok := healthData["status"].(string); ok && status != "healthy" {
-			err = errors.New("服务状态不健康: " + status)
+			err = errors.New("Service status is unhealthy: " + status)
 			return
 		}
 	}
@@ -985,7 +985,7 @@ func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}
 
 func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) {
 	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
-		err = errors.New("第三方收件箱服务器地址未配置")
+		err = errors.New("Third-party inbox server URL not configured")
 		return
 	}
 
@@ -1019,21 +1019,21 @@ func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) 
 	logging.LogInfof("HTTP response result: %+v", result)
 
 	if 401 == resp.StatusCode {
-		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		err = errors.New("Third-party inbox authentication failed, please check access token")
 		return
 	}
 
 	// 安全检查code字段
 	if result["code"] == nil {
 		logging.LogErrorf("get third party shorthands failed: response code is nil, result: %+v", result)
-		err = errors.New("第三方收件箱返回无效响应格式")
+		err = errors.New("Third-party inbox returned invalid response format")
 		return
 	}
 
 	code, ok := result["code"].(float64)
 	if !ok {
 		logging.LogErrorf("get third party shorthands failed: invalid code type, result: %+v", result)
-		err = errors.New("第三方收件箱返回的code字段类型无效")
+		err = errors.New("Third-party inbox returned invalid code field type")
 		return
 	}
 
@@ -1099,13 +1099,13 @@ func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) 
 	}
 
 	logging.LogErrorf("invalid response data format from third party inbox: %+v", result)
-	err = errors.New("第三方收件箱返回数据格式无效")
+	err = errors.New("Third-party inbox returned invalid data format")
 	return
 }
 
 func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) {
 	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
-		err = errors.New("第三方收件箱服务器地址未配置")
+		err = errors.New("Third-party inbox server URL not configured")
 		return
 	}
 
@@ -1126,7 +1126,7 @@ func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) 
 	}
 
 	if 401 == resp.StatusCode {
-		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		err = errors.New("Third-party inbox authentication failed, please check access token")
 		return
 	}
 
@@ -1161,7 +1161,7 @@ func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) 
 
 func RemoveThirdPartyShorthands(ids []string) (err error) {
 	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
-		err = errors.New("第三方收件箱服务器地址未配置")
+		err = errors.New("Third-party inbox server URL not configured")
 		return
 	}
 
@@ -1207,21 +1207,21 @@ func RemoveThirdPartyShorthands(ids []string) (err error) {
 	logging.LogInfof("delete response result: %+v", result)
 
 	if 401 == resp.StatusCode {
-		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		err = errors.New("Third-party inbox authentication failed, please check access token")
 		return
 	}
 
 	// 安全检查code字段
 	if result["code"] == nil {
 		logging.LogErrorf("remove third party shorthands failed: response code is nil, result: %+v", result)
-		err = errors.New("第三方收件箱返回无效响应格式")
+		err = errors.New("Third-party inbox returned invalid response format")
 		return
 	}
 
 	code, ok := result["code"].(float64)
 	if !ok {
 		logging.LogErrorf("remove third party shorthands failed: invalid code type, result: %+v", result)
-		err = errors.New("第三方收件箱返回的code字段类型无效")
+		err = errors.New("Third-party inbox returned invalid code field type")
 		return
 	}
 

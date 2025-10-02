@@ -1673,6 +1673,27 @@
     "271": "数据索引优化完毕，共释放 [%s] 磁盘空间",
     "272": "未命名字段",
     "273": "请勿在分区根路径上创建工作空间，请新建一个文件夹作为工作空间",
-    "274": "该文件夹包含了其他文件，请新建一个文件夹作为工作空间"
+    "274": "该文件夹包含了其他文件，请新建一个文件夹作为工作空间",
+    "thirdPartyInbox": "第三方收件箱",
+    "thirdPartyInboxService": "第三方收件箱服务",
+    "serverUrl": "服务器地址",
+    "serverUrlTip": "第三方收件箱服务器的完整URL地址",
+    "accessToken": "访问令牌",
+    "accessTokenTip": "用于身份验证的访问令牌",
+    "testConnection": "测试连接",
+    "saveConfig": "保存配置",
+    "configSaved": "配置已保存",
+    "connectionTestFailed": "连接测试失败",
+    "connectionTestSuccess": "连接测试成功",
+    "fillServerAndToken": "请填写服务器地址和访问令牌",
+    "validServerUrl": "请输入有效的服务器地址URL",
+    "syncIntervalRange": "同步间隔必须在1-1440分钟之间",
+    "configSaveSuccess": "配置保存成功",
+    "configSaveFailed": "配置保存失败",
+    "fillServerAndTokenFirst": "请先填写服务器地址和访问令牌",
+    "testingConnection": "正在测试连接...",
+    "thirdPartyInboxDesc": "启用后，收件箱数据将同步到第三方服务，而不是思源官方云端。请确保第三方服务兼容思源收件箱API格式。",
+    "syncIntervalDesc": "检查收件箱的间隔时间，建议设置为5-30分钟",
+    "syncIntervalMinutes": "同步间隔（分钟）"
   }
 }
