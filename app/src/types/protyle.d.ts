@@ -10,11 +10,11 @@ interface ILuteNode {
     };
 }
 
-type TTurnIntoOne = "BlocksMergeSuperBlock" | "Blocks2ULs" | "Blocks2OLs" | "Blocks2TLs" | "Blocks2Blockquote"
+type TTurnIntoOne = "BlocksMergeSuperBlock" | "Blocks2ULs" | "Blocks2OLs" | "Blocks2TLs" | "Blocks2Blockquote" | "BlockMath2InlineMath"
 
 type TTurnIntoOneSub = "row" | "col"
 
-type TTurnInto = "Blocks2Ps" | "Blocks2Hs"
+type TTurnInto = "Blocks2Ps" | "Blocks2Hs" | "InlineMath2BlockMath" | "BlockMath2InlineMath"
 
 type TEditorMode = "preview" | "wysiwyg"
 

@@ -1067,8 +1067,19 @@ export const turnsIntoTransaction = (options: {
 
         const tempElement = document.createElement("template");
         if (!options.isContinue) {
-            // @ts-ignore
-            const newHTML = options.protyle.lute[options.type](item.outerHTML, options.level);
+            let newHTML: string;
+
+            // 处理数学公式转换
+            if (options.type === "BlockMath2InlineMath") {
+                // 行间公式转行内公式
+                newHTML = convertBlockMathToInlineMath(item.outerHTML, options.protyle);
+            } else if (options.type === "InlineMath2BlockMath") {
+                // 行内公式转行间公式
+                newHTML = convertInlineMathToBlockMath(item.outerHTML, options.protyle);
+            } else {
+                // @ts-ignore
+                newHTML = options.protyle.lute[options.type](item.outerHTML, options.level);
+            }
             tempElement.innerHTML = newHTML;
 
             if (!tempElement.content.querySelector(`[data-node-id="${id}"]`)) {
@@ -1464,3 +1475,76 @@ export const updateBatchTransaction = (nodeElements: Element[], protyle: IProtyl
     });
     transaction(protyle, operations, undoOperations);
 };
+
+// 数学公式转换方法
+const convertBlockMathToInlineMath = (html: string, protyle: IProtyle): string => {
+    const tempElement = document.createElement("template");
+    tempElement.innerHTML = html;
+
+    const mathBlock = tempElement.content.querySelector('[data-type="NodeMathBlock"][data-subtype="math"]');
+    if (!mathBlock) {
+        return html; // 如果不是数学块，返回原内容
+    }
+
+    // 提取公式内容
+    const formulaContent = mathBlock.getAttribute("data-content");
+    if (!formulaContent) {
+        return html;
+    }
+
+    // 创建新的行内公式元素
+    const inlineMath = document.createElement("span");
+    inlineMath.setAttribute("data-type", "inline-math");
+    inlineMath.setAttribute("data-subtype", "math");
+    inlineMath.setAttribute("data-content", formulaContent);
+
+    // 替换原块
+    mathBlock.parentNode?.replaceChild(inlineMath, mathBlock);
+
+    return tempElement.innerHTML;
+};
+
+const convertInlineMathToBlockMath = (html: string, protyle: IProtyle): string => {
+    const tempElement = document.createElement("template");
+    tempElement.innerHTML = html;
+
+    // 查找所有行内公式元素
+    const inlineMathElements = Array.from(tempElement.content.querySelectorAll('[data-type="inline-math"][data-subtype="math"]'));
+    if (inlineMathElements.length === 0) {
+        return html; // 如果没有行内公式，返回原内容
+    }
+
+    // 处理每个行内公式，将其转换为独立的行间公式块
+    inlineMathElements.forEach(inlineMath => {
+        const formulaContent = inlineMath.getAttribute("data-content");
+        if (!formulaContent) return;
+
+        const newNodeId = Lute.NewNodeID();
+
+        // 创建新的行间公式块
+        const mathBlock = document.createElement("div");
+        mathBlock.setAttribute("data-node-id", newNodeId);
+        mathBlock.setAttribute("data-type", "NodeMathBlock");
+        mathBlock.setAttribute("data-subtype", "math");
+        mathBlock.setAttribute("data-content", formulaContent);
+        mathBlock.classList.add("protyle-wysiwyg--select");
+
+        // 添加数学块的内部结构
+        const mathContent = document.createElement("div");
+        mathContent.setAttribute("contenteditable", "false");
+        mathContent.setAttribute("data-content", formulaContent);
+        mathBlock.appendChild(mathContent);
+
+        // 添加属性元素
+        const attrElement = document.createElement("div");
+        attrElement.classList.add("protyle-attr");
+        attrElement.setAttribute("contenteditable", "false");
+        mathBlock.appendChild(attrElement);
+
+        // 替换原行内公式
+        inlineMath.parentNode?.replaceChild(mathBlock, inlineMath);
+    });
+
+    return tempElement.innerHTML;
+};
+

@@ -894,6 +894,8 @@
   "split": "分屏",
   "underline": "下划线",
   "inline-math": "行级公式",
+  "inlineMath": "行内公式",
+  "blockMath": "行间公式",
   "moveToUp": "向上移",
   "moveToDown": "向下移",
   "moveToLeft": "向左移",

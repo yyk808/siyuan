@@ -894,6 +894,8 @@
   "split": "Split",
   "underline": "Underline",
   "inline-math": "Inline Formula",
+  "inlineMath": "Inline Math",
+  "blockMath": "Block Math",
   "moveToUp": "Move Up",
   "moveToDown": "Move Down",
   "moveToLeft": "Move Left",

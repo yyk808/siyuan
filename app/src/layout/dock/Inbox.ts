@@ -23,6 +23,7 @@ export class Inbox extends Model {
     private currentPage = 1;
     private pageCount = 1;
     private data: { [key: string]: IInbox } = {};
+    private normalizedContent = new Map<string, string>();
 
     constructor(app: App, tab: Tab | Element) {
         super({app, id: tab.id});
@@ -187,6 +188,13 @@ export class Inbox extends Model {
 
     private genDetail(data: IInbox) {
         let linkHTML = "";
+
+        // 检测第三方收件箱内容需要标准化
+        if (data.shorthandFrom === 0 && data.shorthandMd && data.shorthandContent) {
+            // 异步转换内容
+            this.normalizeThirdPartyContent(data);
+        }
+
         /// #if MOBILE
         if (data.shorthandURL) {
             linkHTML = `<a href="${data.shorthandURL}" target="_blank">
@@ -198,7 +206,7 @@ export class Inbox extends Model {
     <span data-type="back" class="toolbar__text fn__flex-1">${data.shorthandTitle}</span>
     ${linkHTML}
 </div>
-<div class="b3-typography b3-typography--default" style="padding: 0 8px 8px">
+<div class="b3-typography b3-typography--default" style="padding: 0 8px 8px" data-content-id="${data.oId}">
 ${data.shorthandContent}
 </div>`;
         /// #else
@@ -213,7 +221,7 @@ ${data.shorthandContent}
     </div>
     ${linkHTML}
 </div>
-<div class="b3-typography b3-typography--default" style="padding: 0 8px 8px;user-select: text" data-type="textMenu">
+<div class="b3-typography b3-typography--default" style="padding: 0 8px 8px;user-select: text" data-type="textMenu" data-content-id="${data.oId}">
 ${data.shorthandContent}
 </div>`;
         /// #endif
@@ -377,6 +385,35 @@ ${data.shorthandContent}
                 });
             });
         });
+    }
+
+    private normalizeThirdPartyContent(data: IInbox) {
+        // 检查缓存
+        const cached = this.normalizedContent.get(data.oId);
+        if (cached) {
+            // 使用缓存内容
+            this.updateContentDisplay(data.oId, cached);
+            return;
+        }
+
+        fetchPost("/api/lute/html2BlockDOM", {
+            dom: data.shorthandContent  // Worker 生成的 HTML
+        }, (response) => {
+            // response.data 是 SiYuan 标准格式的 HTML
+            // 缓存结果
+            this.normalizedContent.set(data.oId, response.data);
+
+            // 更新显示
+            this.updateContentDisplay(data.oId, response.data);
+        });
+    }
+
+    private updateContentDisplay(oId: string, content: string) {
+        const detailsElement = this.element.querySelector(".inboxDetails");
+        const contentElement = detailsElement?.querySelector('.b3-typography[data-content-id="' + oId + '"]');
+        if (contentElement && detailsElement.getAttribute("data-id") === oId) {
+            contentElement.innerHTML = content;
+        }
     }
 
     private update() {

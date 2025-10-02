@@ -1053,6 +1053,20 @@ export class Gutter {
                 level: 6,
                 type: "Blocks2Hs",
             }));
+
+            // 检查段落中是否包含行内公式
+            const inlineMathElement = nodeElement.querySelector('[data-type="inline-math"][data-subtype="math"]');
+            if (inlineMathElement && !protyle.disabled) {
+                // 行内公式转行间公式
+                turnIntoSubmenu.push(this.turnsInto({
+                    menuId: "blockMath",
+                    icon: "iconMath",
+                    label: window.siyuan.languages.blockMath,
+                    protyle,
+                    selectsElement: [nodeElement],
+                    type: "InlineMath2BlockMath"
+                }));
+            }
         } else if (type === "NodeHeading" && !protyle.disabled) {
             turnIntoSubmenu.push(this.turnsInto({
                 menuId: "paragraph",
@@ -1238,6 +1252,17 @@ export class Gutter {
                 protyle,
                 nodeElement,
                 type: "CancelBlockquote"
+            }));
+        } else if (type === "NodeMathBlock" && subType === "math" && !protyle.disabled) {
+            // 行间公式转行内公式
+            turnIntoSubmenu.push(this.turnsOneInto({
+                menuId: "inlineMath",
+                id,
+                icon: "iconMath",
+                label: window.siyuan.languages.inlineMath,
+                protyle,
+                nodeElement,
+                type: "BlockMath2InlineMath"
             }));
         }
         if (turnIntoSubmenu.length > 0 && !protyle.disabled) {
