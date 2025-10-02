@@ -354,15 +354,21 @@ ${data.shorthandContent}
                 fetchPost("/api/inbox/getShorthand", {
                     id: item
                 }, (response) => {
-                    this.data[response.data.oId] = response.data;
-                    let md = response.data.shorthandMd;
-                    if ("" === md && "" === response.data.shorthandContent && "" != response.data.shorthandURL) {
-                        md = "[" + response.data.shorthandTitle + "](" + response.data.shorthandURL + ")";
+                    // 处理第三方收件箱的双重数据嵌套
+                    const shorthandData = response.data.data || response.data;
+                    if (!shorthandData || !shorthandData.oId) {
+                        console.error("Invalid shorthand data received:", response);
+                        return;
+                    }
+                    this.data[shorthandData.oId] = shorthandData;
+                    let md = shorthandData.shorthandMd;
+                    if ("" === md && "" === shorthandData.shorthandContent && "" != shorthandData.shorthandURL) {
+                        md = "[" + shorthandData.shorthandTitle + "](" + shorthandData.shorthandURL + ")";
                     }
                     fetchPost("/api/filetree/createDoc", {
                         notebook: toNotebook[0],
                         path: pathPosix().join(getDisplayName(toPath[0], false, true), Lute.NewNodeID() + ".sy"),
-                        title: replaceFileName(response.data.shorthandTitle),
+                        title: replaceFileName(shorthandData.shorthandTitle),
                         md: md,
                         listDocTree: true,
                     }, () => {
