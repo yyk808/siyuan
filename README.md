@@ -32,6 +32,7 @@
 
 ## Table of Contents
 
+* [⚠️ Third Party Implementation](#-third-party-implementation)
 * [💡 Introduction](#-introduction)
 * [🔮 Features](#-features)
 * [🏗️ Architecture and Ecosystem](#-architecture-and-ecosystem)
@@ -57,6 +58,14 @@
   * [Contributors](#contributors)
 
 ---
+
+## ⚠️ Third Party Implementation
+This repo contains third-party code, use at your own risk. Copyrights belongs to SiYuan official.
+
+We changed the following:
+- Break up SiYuan first-party components (LianDi Sync, Inbox .etc)
+- Provide third-party inbox implementation, including a cloudflare worker server.
+- Some minor bugfix and optimization.
 
 ## 💡 Introduction
 
