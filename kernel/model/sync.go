@@ -17,12 +17,15 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,9 +34,11 @@ import (
 	"github.com/88250/go-humanize"
 	"github.com/88250/gulu"
 	"github.com/88250/lute/html"
+	"github.com/88250/lute/parse"
 	"github.com/gorilla/websocket"
 	"github.com/siyuan-note/dejavu"
 	"github.com/siyuan-note/dejavu/cloud"
+	"github.com/siyuan-note/httpclient"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/cache"
 	"github.com/siyuan-note/siyuan/kernel/conf"
@@ -922,12 +927,54 @@ func SetThirdPartyInbox(config *conf.ThirdPartyInbox) (err error) {
 }
 
 func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}, err error) {
-	// 简单的连接测试实现
-	// 这里可以发送一个测试请求到第三方服务
-	// 暂时返回成功结果用于前端开发测试
+	if serverURL == "" {
+		err = errors.New("服务器地址不能为空")
+		return
+	}
 
-	// TODO: 实现真实的第三方服务连接测试
-	// 可以发送一个GET请求到 {serverURL}/health 或类似的健康检查端点
+	if token == "" {
+		err = errors.New("访问令牌不能为空")
+		return
+	}
+
+	// 发送健康检查请求到第三方服务
+	healthResult := map[string]interface{}{}
+	request := httpclient.NewCloudRequest30s()
+	resp, err := request.
+		SetSuccessResult(&healthResult).
+		SetHeader("Authorization", "Bearer "+token).
+		Get(serverURL + "/api/health")
+
+	if err != nil {
+		logging.LogErrorf("test third party inbox connection failed: %s", err)
+		err = errors.New("连接失败，请检查服务器地址")
+		return
+	}
+
+	if 401 == resp.StatusCode {
+		err = errors.New("认证失败，请检查访问令牌")
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		err = errors.New(fmt.Sprintf("服务器返回错误状态码: %d", resp.StatusCode))
+		return
+	}
+
+	code := healthResult["code"].(float64)
+	if 0 != code {
+		logging.LogErrorf("test third party inbox connection failed: %s", healthResult["msg"])
+		err = errors.New(healthResult["msg"].(string))
+		return
+	}
+
+	// 检查健康状态
+	if healthData, ok := healthResult["data"].(map[string]interface{}); ok {
+		if status, ok := healthData["status"].(string); ok && status != "healthy" {
+			err = errors.New("服务状态不健康: " + status)
+			return
+		}
+	}
 
 	result = map[string]interface{}{
 		"status":  "success",
@@ -937,37 +984,261 @@ func TestThirdPartyInbox(serverURL, token string) (result map[string]interface{}
 }
 
 func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) {
-	// TODO: 实现真实的第三方收件箱数据获取
-	// 这里应该调用第三方服务的API获取收件箱列表
-
-	// 暂时返回空数据用于前端开发测试
-	data = map[string]interface{}{
-		"code": 0,
-		"msg":  "success",
-		"data": map[string]interface{}{
-			"shorthands": []interface{}{},
-			"pagination": map[string]interface{}{
-				"paginationPageCount": 1,
-				"paginationRecordCount": 0,
-			},
-		},
+	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
+		err = errors.New("第三方收件箱服务器地址未配置")
+		return
 	}
+
+	serverURL := Conf.Sync.ThirdPartyInbox.ServerURL
+	token := Conf.Sync.ThirdPartyInbox.Token
+
+	logging.LogInfof("getting third party shorthands from: %s?page=%d", serverURL, page)
+	tokenPrefix := token
+	if len(token) > 20 {
+		tokenPrefix = token[:20] + "***"
+	}
+	logging.LogInfof("using token: %s", tokenPrefix)
+
+	result := map[string]interface{}{}
+	request := httpclient.NewCloudRequest30s()
+	apiURL := serverURL + "/api/shorthands?page=" + strconv.Itoa(page)
+
+	resp, err := request.
+		SetSuccessResult(&result).
+		SetHeader("Authorization", "Bearer "+token).
+		Get(apiURL)
+
+	if err != nil {
+		logging.LogErrorf("get third party shorthands HTTP request failed: %s", err)
+		logging.LogErrorf("request URL: %s", apiURL)
+		err = ErrFailedToConnectCloudServer
+		return
+	}
+
+	logging.LogInfof("HTTP response status: %d", resp.StatusCode)
+	logging.LogInfof("HTTP response result: %+v", result)
+
+	if 401 == resp.StatusCode {
+		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		return
+	}
+
+	// 安全检查code字段
+	if result["code"] == nil {
+		logging.LogErrorf("get third party shorthands failed: response code is nil, result: %+v", result)
+		err = errors.New("第三方收件箱返回无效响应格式")
+		return
+	}
+
+	code, ok := result["code"].(float64)
+	if !ok {
+		logging.LogErrorf("get third party shorthands failed: invalid code type, result: %+v", result)
+		err = errors.New("第三方收件箱返回的code字段类型无效")
+		return
+	}
+
+	if 0 != code {
+		msg := "未知错误"
+		if resultMsg, ok := result["msg"].(string); ok {
+			msg = resultMsg
+		}
+		logging.LogErrorf("get third party shorthands failed: %s", msg)
+		err = errors.New(msg)
+		return
+	}
+
+	// 处理数据格式，使其与官方格式兼容
+	if resultData, ok := result["data"].(map[string]interface{}); ok {
+		logging.LogInfof("third party inbox response data: %+v", resultData)
+
+		// 处理shorthands列表
+		if shorthands, ok := resultData["shorthands"].([]interface{}); ok {
+			logging.LogInfof("processing %d shorthands", len(shorthands))
+
+			luteEngine := NewLute()
+			audioRegexp := regexp.MustCompile("<audio.*>.*</audio>")
+			videoRegexp := regexp.MustCompile("<video.*>.*</video>")
+			fileRegexp := regexp.MustCompile("\\[文件]\\(.*\\)")
+
+			for _, item := range shorthands {
+				if shorthand, ok := item.(map[string]interface{}); ok {
+					// 处理描述
+					if desc, ok := shorthand["shorthandDesc"].(string); ok {
+						desc = audioRegexp.ReplaceAllString(desc, " 语音 ")
+						desc = videoRegexp.ReplaceAllString(desc, " 视频 ")
+						desc = fileRegexp.ReplaceAllString(desc, " 文件 ")
+						desc = strings.ReplaceAll(desc, "\n\n", "")
+						desc = strings.TrimSpace(desc)
+						shorthand["shorthandDesc"] = desc
+					}
+
+					// 处理内容 - 从HTML转换为Markdown，然后生成新的HTML
+					if content, ok := shorthand["shorthandContent"].(string); ok {
+						shorthand["shorthandMd"] = content
+						tree := parse.Parse("", []byte(content), luteEngine.ParseOptions)
+						luteEngine.RenderOptions.ProtyleMarkNetImg = false
+						contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions)
+						shorthand["shorthandContent"] = contentHTML
+					}
+
+					// 处理时间戳格式
+					if id, ok := shorthand["oId"].(string); ok {
+						if timestamp, err := strconv.ParseInt(id, 10, 64); err == nil {
+							hCreated := util.Millisecond2Time(timestamp)
+							shorthand["hCreated"] = hCreated.Format("2006-01-02 15:04")
+						}
+					}
+				}
+			}
+		} else {
+			logging.LogErrorf("shorthands field not found or not an array in response data")
+		}
+
+		data = resultData
+		return
+	}
+
+	logging.LogErrorf("invalid response data format from third party inbox: %+v", result)
+	err = errors.New("第三方收件箱返回数据格式无效")
 	return
 }
 
 func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) {
-	// TODO: 实现真实的第三方收件箱单个数据获取
-	// 这里应该调用第三方服务的API获取单个收件箱项
+	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
+		err = errors.New("第三方收件箱服务器地址未配置")
+		return
+	}
 
-	// 暂时返回空数据用于前端开发测试
-	err = fmt.Errorf("收件箱项不存在")
+	serverURL := Conf.Sync.ThirdPartyInbox.ServerURL
+	token := Conf.Sync.ThirdPartyInbox.Token
+
+	result := map[string]interface{}{}
+	request := httpclient.NewCloudRequest30s()
+	resp, err := request.
+		SetSuccessResult(&result).
+		SetHeader("Authorization", "Bearer "+token).
+		Get(serverURL + "/api/shorthands/" + id)
+
+	if err != nil {
+		logging.LogErrorf("get third party shorthand failed: %s", err)
+		err = ErrFailedToConnectCloudServer
+		return
+	}
+
+	if 401 == resp.StatusCode {
+		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		return
+	}
+
+	code := result["code"].(float64)
+	if 0 != code {
+		logging.LogErrorf("get third party shorthand failed: %s", result["msg"])
+		if result["msg"].(string) == "Shorthand not found" {
+			err = fmt.Errorf("收件箱项不存在")
+		} else {
+			err = errors.New(result["msg"].(string))
+		}
+		return
+	}
+
+	// 处理数据格式，使其与官方格式兼容
+	if resultData, ok := result["data"].(map[string]interface{}); ok {
+		// 处理内容格式
+		if content, ok := resultData["shorthandContent"].(string); ok {
+			resultData["shorthandMd"] = content
+
+			luteEngine := NewLute()
+			tree := parse.Parse("", []byte(content), luteEngine.ParseOptions)
+			luteEngine.RenderOptions.ProtyleMarkNetImg = false
+			contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions)
+			resultData["shorthandContent"] = contentHTML
+		}
+	}
+
+	data = result["data"].(map[string]interface{})
 	return
 }
 
 func RemoveThirdPartyShorthands(ids []string) (err error) {
-	// TODO: 实现真实的第三方收件箱删除功能
-	// 这里应该调用第三方服务的API删除收件箱项
+	if Conf.Sync.ThirdPartyInbox == nil || Conf.Sync.ThirdPartyInbox.ServerURL == "" {
+		err = errors.New("第三方收件箱服务器地址未配置")
+		return
+	}
 
-	// 暂时返回成功用于前端开发测试
+	if len(ids) == 0 {
+		logging.LogInfof("remove third party shorthands: no IDs provided")
+		return // 没有要删除的项目
+	}
+
+	logging.LogInfof("removing third party shorthands: %v", ids)
+
+	serverURL := Conf.Sync.ThirdPartyInbox.ServerURL
+	token := Conf.Sync.ThirdPartyInbox.Token
+
+	// 准备请求体
+	requestBody := map[string]interface{}{
+		"ids": ids,
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		logging.LogErrorf("marshal remove third party shorthands request failed: %s", err)
+		return
+	}
+
+	logging.LogInfof("sending delete request to: %s", serverURL+"/api/shorthands")
+
+	result := map[string]interface{}{}
+	request := httpclient.NewCloudRequest30s()
+	resp, err := request.
+		SetSuccessResult(&result).
+		SetHeader("Authorization", "Bearer "+token).
+		SetHeader("Content-Type", "application/json").
+		SetBody(string(bodyBytes)).
+		Delete(serverURL + "/api/shorthands")
+
+	if err != nil {
+		logging.LogErrorf("remove third party shorthands failed: %s", err)
+		err = ErrFailedToConnectCloudServer
+		return
+	}
+
+	logging.LogInfof("delete response status: %d", resp.StatusCode)
+	logging.LogInfof("delete response result: %+v", result)
+
+	if 401 == resp.StatusCode {
+		err = errors.New("第三方收件箱认证失败，请检查访问令牌")
+		return
+	}
+
+	// 安全检查code字段
+	if result["code"] == nil {
+		logging.LogErrorf("remove third party shorthands failed: response code is nil, result: %+v", result)
+		err = errors.New("第三方收件箱返回无效响应格式")
+		return
+	}
+
+	code, ok := result["code"].(float64)
+	if !ok {
+		logging.LogErrorf("remove third party shorthands failed: invalid code type, result: %+v", result)
+		err = errors.New("第三方收件箱返回的code字段类型无效")
+		return
+	}
+
+	if 0 != code {
+		msg := "未知错误"
+		if resultMsg, ok := result["msg"].(string); ok {
+			msg = resultMsg
+		}
+		logging.LogErrorf("remove third party shorthands failed: %s", msg)
+		err = errors.New(msg)
+		return
+	}
+
+	// 记录删除结果
+	if deletedCount, ok := result["data"].(map[string]interface{})["deletedCount"]; ok {
+		logging.LogInfof("Successfully deleted %v third party shorthand(s)", deletedCount)
+	}
+
 	return
 }

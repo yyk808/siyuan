@@ -220,13 +220,21 @@ ${data.shorthandContent}
     }
 
     private genItemHTML(item: IInbox) {
-        return `<li style="padding-left: 0" data-id="${item.oId}" class="b3-list-item">
+        // 添加安全检查以防止undefined值
+        const oId = item.oId || '';
+        const title = item.shorthandTitle || 'Untitled';
+        const desc = item.shorthandDesc || '';
+        const created = item.hCreated || '';
+        const titleAttr = title + (title === desc ? '' : '\n' + desc);
+        const isChecked = this.selectIds.includes(oId);
+
+        return `<li style="padding-left: 0" data-id="${oId}" class="b3-list-item">
     <span data-type="select" class="b3-list-item__action">
-        <svg><use xlink:href="#icon${this.selectIds.includes(item.oId) ? "Check" : "Uncheck"}"></use></svg> 
+        <svg><use xlink:href="#icon${isChecked ? "Check" : "Uncheck"}"></use></svg>
     </span>
     <span class="fn__space--small"></span>
-    <span class="b3-list-item__text" title="${item.shorthandTitle}${item.shorthandTitle === item.shorthandDesc ? "" : "\n" + item.shorthandDesc}">${item.shorthandTitle}</span>
-    <span class="b3-list-item__meta">${item.hCreated}</span>
+    <span class="b3-list-item__text" title="${escapeHtml(titleAttr)}">${escapeHtml(title)}</span>
+    <span class="b3-list-item__meta">${escapeHtml(created)}</span>
 </li>`;
     }
 
@@ -241,8 +249,12 @@ ${data.shorthandContent}
                     fetchPost("/api/inbox/getShorthand", {
                         id: itemElement.dataset.id
                     }, (response) => {
-                        this.data[response.data.oId] = response.data;
-                        itemElement.outerHTML = this.genItemHTML(response.data);
+                        // 处理第三方收件箱的双重数据嵌套
+                        const shorthandData = response.data.data || response.data;
+                        if (shorthandData && shorthandData.oId) {
+                            this.data[shorthandData.oId] = shorthandData;
+                            itemElement.outerHTML = this.genItemHTML(shorthandData);
+                        }
                     });
                 } else if (detailsElement.classList.contains("fn__none")) {
                     this.currentPage = 1;
@@ -251,9 +263,13 @@ ${data.shorthandContent}
                     fetchPost("/api/inbox/getShorthand", {
                         id: detailsElement.getAttribute("data-id")
                     }, (response) => {
-                        this.data[response.data.oId] = response.data;
-                        detailsElement.innerHTML = this.genDetail(response.data);
-                        detailsElement.scrollTop = 0;
+                        // 处理第三方收件箱的双重数据嵌套
+                        const shorthandData = response.data.data || response.data;
+                        if (shorthandData && shorthandData.oId) {
+                            this.data[shorthandData.oId] = shorthandData;
+                            detailsElement.innerHTML = this.genDetail(shorthandData);
+                            detailsElement.scrollTop = 0;
+                        }
                     });
                 }
             }

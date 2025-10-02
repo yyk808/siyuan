@@ -134,7 +134,8 @@ export class Database {
             throw new Error('Failed to delete shorthands');
         }
 
-        return (result as any).changes || 0;
+        // Cloudflare D1 的 changes 在 meta 中
+        return (result as any).meta?.changes || 0;
     }
 
     /**
@@ -239,5 +240,5 @@ export class Database {
  * @returns Database instance
  */
 export function createDatabase(env: Env): Database {
-    return new Database(env.DB);
+    return new Database(env.siyuan_inbox);
 }

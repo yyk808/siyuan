@@ -53,7 +53,7 @@ export async function handleGetShorthands(request: Request, env: Env): Promise<R
             );
         }
 
-        const database = new Database(env.DB);
+        const database = new Database(env.siyuan_inbox);
         const result = await database.getShorthands(page, limit);
 
         const response = createApiResponse(ErrorCode.SUCCESS, ERROR_MESSAGES[ErrorCode.SUCCESS], result);
@@ -89,7 +89,7 @@ export async function handleGetShorthand(request: Request, env: Env, id: string)
             );
         }
 
-        const database = new Database(env.DB);
+        const database = new Database(env.siyuan_inbox);
         const shorthand = await database.getShorthand(id);
 
         if (!shorthand) {
@@ -139,7 +139,7 @@ export async function handleCreateShorthand(request: Request, env: Env): Promise
             );
         }
 
-        const database = new Database(env.DB);
+        const database = new Database(env.siyuan_inbox);
         const shorthand = await database.createShorthand(
             body.content_md,
             body.title,
@@ -182,7 +182,7 @@ export async function handleDeleteShorthands(request: Request, env: Env): Promis
             );
         }
 
-        const database = new Database(env.DB);
+        const database = new Database(env.siyuan_inbox);
         const deletedCount = await database.deleteShorthands(body.ids);
 
         const response = createApiResponse(
@@ -239,7 +239,7 @@ export async function handleSearchShorthands(request: Request, env: Env): Promis
             );
         }
 
-        const database = new Database(env.DB);
+        const database = new Database(env.siyuan_inbox);
         const result = await database.searchShorthands(searchTerm.trim(), page, limit);
 
         const response = createApiResponse(ErrorCode.SUCCESS, ERROR_MESSAGES[ErrorCode.SUCCESS], result);
@@ -265,7 +265,15 @@ export async function handleSearchShorthands(request: Request, env: Env): Promis
  */
 export async function handleHealth(request: Request, env: Env): Promise<Response> {
     try {
-        const database = new Database(env.DB);
+        console.log('Health check requested');
+        console.log('Database binding:', typeof env.siyuan_inbox);
+
+        if (!env.siyuan_inbox) {
+            console.error('Database not bound properly');
+            throw new Error('Database not bound');
+        }
+
+        const database = new Database(env.siyuan_inbox);
         const count = await database.getShorthandsCount();
 
         const response = createApiResponse(ErrorCode.SUCCESS, 'Service is healthy', {

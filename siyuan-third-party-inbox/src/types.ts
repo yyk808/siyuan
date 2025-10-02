@@ -63,7 +63,7 @@ export interface DeleteShorthandsRequest {
 
 // Cloudflare Worker environment
 export interface Env {
-    DB: D1Database;               // D1 database binding
+    siyuan_inbox: D1Database;     // D1 database binding
     BEARER_TOKEN?: string;         // Authentication token (secret)
     CORS_ORIGINS?: string;         // CORS origins (comma separated)
 }

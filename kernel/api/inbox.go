@@ -21,6 +21,7 @@ import (
 
 	"github.com/88250/gulu"
 	"github.com/gin-gonic/gin"
+	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/model"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
@@ -40,8 +41,13 @@ func removeShorthands(c *gin.Context) {
 		ids = append(ids, id.(string))
 	}
 
+	logging.LogInfof("removeShorthands API called with IDs: %v", ids)
+	logging.LogInfof("ThirdPartyInbox config: %+v, Enabled: %v", model.Conf.Sync.ThirdPartyInbox,
+		model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled)
+
 	// 检查是否启用第三方收件箱
 	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		logging.LogInfof("Using third-party inbox for deletion")
 		err := model.RemoveThirdPartyShorthands(ids)
 		if err != nil {
 			ret.Code = 1
@@ -49,6 +55,7 @@ func removeShorthands(c *gin.Context) {
 			return
 		}
 	} else {
+		logging.LogInfof("Using official cloud inbox for deletion")
 		err := model.RemoveCloudShorthands(ids)
 		if err != nil {
 			ret.Code = 1
@@ -83,7 +90,15 @@ func getShorthand(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+
+	// 确保返回格式与客户端期望一致
+	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		ret.Data = map[string]interface{}{
+			"data": data,
+		}
+	} else {
+		ret.Data = data
+	}
 }
 
 func getShorthands(c *gin.Context) {
@@ -111,5 +126,15 @@ func getShorthands(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
-	ret.Data = data
+
+	// 确保返回格式与客户端期望一致
+	// 客户端期望: response.data.data.shorthands 和 response.data.data.pagination
+	// 官方API已经包含双重嵌套，第三方API需要添加一层嵌套
+	if model.Conf.Sync.ThirdPartyInbox != nil && model.Conf.Sync.ThirdPartyInbox.Enabled {
+		ret.Data = map[string]interface{}{
+			"data": data,
+		}
+	} else {
+		ret.Data = data
+	}
 }
