@@ -112,10 +112,10 @@ class Toolbar {
               : AnnotationEditorType.STAMP;
           },
         },
-        telemetry: {
-          type: "editing",
-          data: { action: "pdfjs.image.icon_click" },
-        },
+        // telemetry: {
+        //   type: "editing",
+        //   data: { action: "pdfjs.image.icon_click" },
+        // },
       },
     ];
 
@@ -199,10 +199,11 @@ class Toolbar {
           });
         }
         if (telemetry) {
-          eventBus.dispatch("reporttelemetry", {
-            source: this,
-            details: telemetry,
-          });
+          // Telemetry disabled
+          // eventBus.dispatch("reporttelemetry", {
+          //   source: this,
+          //   details: telemetry,
+          // });
         }
       });
     }

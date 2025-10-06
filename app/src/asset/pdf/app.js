@@ -1136,13 +1136,14 @@ class PDFViewerApplication {
         }
 
         if (this._hasAnnotationEditors) {
-            this.externalServices.reportTelemetry({
-                type: "editing",
-                data: {
-                    type: "save",
-                    stats: this.pdfDocument?.annotationStorage.editorStats,
-                },
-            });
+            // Telemetry disabled
+            // this.externalServices.reportTelemetry({
+            //     type: "editing",
+            //     data: {
+            //         type: "save",
+            //         stats: this.pdfDocument?.annotationStorage.editorStats,
+            //     },
+            // });
         }
     }
 
@@ -1436,10 +1437,11 @@ class PDFViewerApplication {
         );
 
         onePageRendered.then(data => {
-            this.externalServices.reportTelemetry({
-                type: "pageInfo",
-                timestamp: data.timestamp,
-            });
+            // Telemetry disabled
+            // this.externalServices.reportTelemetry({
+            //     type: "pageInfo",
+            //     timestamp: data.timestamp,
+            // });
 
             if (this.pdfOutlineViewer) {
                 pdfDocument.getOutline().then(outline => {
@@ -1852,13 +1854,14 @@ class PDFViewerApplication {
         this.printService.layout();
 
         if (this._hasAnnotationEditors) {
-            this.externalServices.reportTelemetry({
-                type: "editing",
-                data: {
-                    type: "print",
-                    stats: this.pdfDocument?.annotationStorage.editorStats,
-                },
-            });
+            // Telemetry disabled
+            // this.externalServices.reportTelemetry({
+            //     type: "editing",
+            //     data: {
+            //         type: "print",
+            //         stats: this.pdfDocument?.annotationStorage.editorStats,
+            //     },
+            // });
         }
     }
 
@@ -2008,11 +2011,12 @@ class PDFViewerApplication {
                 evt => externalServices.updateEditorStates(evt),
                 {signal}
             );
-            eventBus._on(
-                "reporttelemetry",
-                evt => externalServices.reportTelemetry(evt.details),
-                {signal}
-            );
+            // Telemetry disabled
+            // eventBus._on(
+            //     "reporttelemetry",
+            //     evt => externalServices.reportTelemetry(evt.details),
+            //     {signal}
+            // );
         }
         if (
             typeof PDFJSDev === "undefined" ||
@@ -2978,10 +2982,11 @@ function onKeyDown(evt) {
             case 80: // p
                 pdfInstance.requestPresentationMode();
                 handled = true;
-                pdfInstance.externalServices.reportTelemetry({
-                    type: "buttons",
-                    data: {id: "presentationModeKeyboard"},
-                });
+                // Telemetry disabled
+                // pdfInstance.externalServices.reportTelemetry({
+                //     type: "buttons",
+                //     data: {id: "presentationModeKeyboard"},
+                // });
                 break;
             case 71: // g
                 // focuses input#pageNumber field

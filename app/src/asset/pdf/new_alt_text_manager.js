@@ -600,13 +600,11 @@ class ImageAltTextSettings {
   }
 
   #reportTelemetry(data) {
-    this.#eventBus.dispatch("reporttelemetry", {
-      source: this,
-      details: {
-        type: "editing",
-        data,
-      },
-    });
+    // Telemetry disabled
+    // this.#eventBus.dispatch("reporttelemetry", {
+    //   source: this,
+    //   details: data,
+    // });
   }
 
   async #download(isFromUI = false) {
