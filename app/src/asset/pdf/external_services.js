@@ -31,7 +31,9 @@ class BaseExternalServices {
 
   initPassiveLoading() {}
 
-  reportTelemetry(data) {}
+  reportTelemetry(data) {
+    // Telemetry disabled
+  }
 
   /**
    * @returns {Promise<IL10n>}

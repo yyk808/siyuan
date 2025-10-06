@@ -38,13 +38,38 @@ if errorlevel 1 (
     exit /b %errorlevel%
 )
 
-echo 'Building Kernel arm64'
+echo 'Detecting ARM64 compiler for Kernel build'
+
 set GOARCH=arm64
-@REM if you want to build arm64, you need to install aarch64-w64-mingw32-gcc
-set CC="D:/Program Files/llvm-mingw-20240518-ucrt-x86_64/bin/aarch64-w64-mingw32-gcc.exe"
-go build --tags fts5 -v -o "../app/kernel-arm64/SiYuan-Kernel.exe" -ldflags "-s -w -H=windowsgui" .
-if errorlevel 1 (
-    exit /b %errorlevel%
+REM Try to find ARM64 compiler in common locations
+set "CC_FOUND="
+for %%d in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
+    if exist "%%d:\Program Files\mingw-w64\*\bin\aarch64-w64-mingw32-gcc.exe" (
+        for /f "delims=" %%i in ('dir /b /s "%%d:\Program Files\mingw-w64\*\bin\aarch64-w64-mingw32-gcc.exe" 2^>nul') do (
+            set "CC=%%i"
+            set "CC_FOUND=1"
+            goto :compiler_found
+        )
+    )
+    if exist "%%d:\Program Files\llvm-mingw-*\bin\aarch64-w64-mingw32-gcc.exe" (
+        for /f "delims=" %%i in ('dir /b /s "%%d:\Program Files\llvm-mingw-*\bin\aarch64-w64-mingw32-gcc.exe" 2^>nul') do (
+            set "CC=%%i"
+            set "CC_FOUND=1"
+            goto :compiler_found
+        )
+    )
+)
+
+:compiler_found
+if defined CC_FOUND (
+    echo Found ARM64 compiler: %CC%
+    go build --tags fts5 -v -o "../app/kernel-arm64/SiYuan-Kernel.exe" -ldflags "-s -w -H=windowsgui" .
+    if errorlevel 1 (
+        exit /b %errorlevel%
+    )
+) else (
+    echo WARNING: ARM64 compiler not found. Skipping ARM64 build.
+    echo Please install MinGW-w64 or LLVM-MinGW to build ARM64 version.
 )
 cd ..
 

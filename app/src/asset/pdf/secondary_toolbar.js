@@ -225,13 +225,14 @@ class SecondaryToolbar {
         if (close) {
           this.close();
         }
-        eventBus.dispatch("reporttelemetry", {
-          source: this,
-          details: {
-            type: "buttons",
-            data: { id: element.id },
-          },
-        });
+        // Telemetry disabled
+        // eventBus.dispatch("reporttelemetry", {
+        //   source: this,
+        //   details: {
+        //     type: "buttons",
+        //     data: { id: element.id },
+        //   },
+        // });
       });
     }
 

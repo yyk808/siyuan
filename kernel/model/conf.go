@@ -896,22 +896,17 @@ func InitBoxes() {
 }
 
 func IsSubscriber() bool {
-	u := Conf.GetUser()
-	return nil != u && (-1 == u.UserSiYuanProExpireTime || 0 < u.UserSiYuanProExpireTime) && 0 == u.UserSiYuanSubscriptionStatus
+	// 移除付费订阅检查，所有用户都被视为订阅用户
+	return true
 }
 
 func IsPaidUser() bool {
+	// 移除付费用户检查，所有用户都被视为付费用户
+	
 	// S3/WebDAV data sync and backup are available for a fee https://github.com/siyuan-note/siyuan/issues/8780
 
-	if IsSubscriber() {
-		return true
-	}
-
-	u := Conf.GetUser()
-	if nil == u {
-		return false
-	}
-	return 1 == u.UserSiYuanOneTimePayStatus
+	// All users are treated as paid users
+	return true
 }
 
 const (
