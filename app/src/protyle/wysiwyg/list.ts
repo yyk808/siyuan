@@ -6,6 +6,7 @@ import {Constants} from "../../constants";
 import {moveToPrevious, removeBlock} from "./remove";
 import {hasClosestByClassName} from "../util/hasClosest";
 import {setFold} from "../../menus/protyle";
+import {getParentBlock} from "./getBlock";
 
 export const updateListOrder = (listElement: Element, sIndex?: number) => {
     if (listElement.getAttribute("data-subtype") !== "o") {
@@ -13,6 +14,10 @@ export const updateListOrder = (listElement: Element, sIndex?: number) => {
     }
     let starIndex: number;
     Array.from(listElement.children).forEach((item, index) => {
+        // https://github.com/siyuan-note/siyuan/issues/16315 第三点会有为空的情况
+        if (!item.classList.contains("li")) {
+            return;
+        }
         if (index === 0) {
             if (sIndex) {
                 starIndex = sIndex;
@@ -272,7 +277,7 @@ export const breakList = (protyle: IProtyle, blockElement: Element, range: Range
         action: "delete"
     });
 
-    Array.from(listItemElement.children).reverse().forEach((item) => {
+    Array.from(listItemElement.children).reverse().forEach((item, index) => {
         if (!item.classList.contains("protyle-action") && !item.classList.contains("protyle-attr")) {
             doOperations.push({
                 id: item.getAttribute("data-node-id"),
@@ -282,7 +287,8 @@ export const breakList = (protyle: IProtyle, blockElement: Element, range: Range
             undoOperations.push({
                 id: item.getAttribute("data-node-id"),
                 action: "move",
-                parentID: listItemId
+                parentID: listItemId,
+                data: index === listItemElement.childElementCount - 2 ? "focus" : null
             });
             listItemElement.parentElement.after(item);
         }
@@ -347,13 +353,14 @@ export const listOutdent = (protyle: IProtyle, liItemElements: Element[], range:
         // zoom in 列表项
         return;
     }
-    const parentLiItemElement = liElement.parentElement;
+    const parentLiItemElement = getParentBlock(liElement);
     const parentParentElement = parentLiItemElement.parentElement;
     if (liElement.previousElementSibling?.classList.contains("protyle-action") && !parentParentElement.getAttribute("data-node-id")) {
         // https://ld246.com/article/1691981936960 情况下 zoom in 列表项
         return;
     }
-    if (parentLiItemElement.classList.contains("protyle-wysiwyg") || parentLiItemElement.classList.contains("sb") || parentLiItemElement.classList.contains("bq")) {
+    if (parentLiItemElement.classList.contains("protyle-wysiwyg") || parentLiItemElement.classList.contains("sb") ||
+        parentLiItemElement.classList.contains("bq") || parentLiItemElement.classList.contains("callout")) {
         // 顶层列表
         const topDoOperations: IOperation[] = [];
         const topUndoOperations: IOperation[] = [];
@@ -506,7 +513,8 @@ export const listOutdent = (protyle: IProtyle, liItemElements: Element[], range:
                 protyle,
                 selectsElement: [liElement, liElement.nextElementSibling],
                 type: "BlocksMergeSuperBlock",
-                level: "row"
+                level: "row",
+                unfocus: true,
             });
         }
         focusByWbr(parentLiItemElement, range);

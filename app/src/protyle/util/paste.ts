@@ -13,44 +13,46 @@ import {scrollCenter} from "../../util/highlightById";
 import {hideElements} from "../ui/hideElements";
 import {avRender} from "../render/av/render";
 import {cellScrollIntoView, getCellText} from "../render/av/cell";
-import {getContenteditableElement} from "../wysiwyg/getBlock";
+import {getCalloutInfo, getContenteditableElement} from "../wysiwyg/getBlock";
+import {clearBlockElement} from "./clear";
 
-export const getTextStar = (blockElement: HTMLElement) => {
+export const getTextStar = (blockElement: HTMLElement, contentOnly = false) => {
     const dataType = blockElement.dataset.type;
     let refText = "";
     if (["NodeHeading", "NodeParagraph"].includes(dataType)) {
         refText = getContenteditableElement(blockElement).innerHTML;
-    } else {
-        if ("NodeHTMLBlock" === dataType) {
-            refText = "HTML";
-        } else if ("NodeAttributeView" === dataType) {
-            refText = blockElement.querySelector(".av__title").textContent || window.siyuan.languages.database;
-        } else if ("NodeThematicBreak" === dataType) {
-            refText = window.siyuan.languages.line;
-        } else if ("NodeIFrame" === dataType) {
-            refText = "IFrame";
-        } else if ("NodeWidget" === dataType) {
-            refText = window.siyuan.languages.widget;
-        } else if ("NodeVideo" === dataType) {
-            refText = window.siyuan.languages.video;
-        } else if ("NodeAudio" === dataType) {
-            refText = window.siyuan.languages.audio;
-        } else if (["NodeCodeBlock", "NodeTable"].includes(dataType)) {
-            refText = getPlainText(blockElement);
-        } else if (blockElement.classList.contains("render-node")) {
-            // 需在嵌入块后，代码块前
-            refText += blockElement.dataset.subtype || Lute.UnEscapeHTMLStr(blockElement.getAttribute("data-content"));
-        } else if (["NodeBlockquote", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(dataType)) {
-            Array.from(blockElement.querySelectorAll("[data-node-id]")).find((item: HTMLElement) => {
-                if (!["NodeBlockquote", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(item.getAttribute("data-type"))) {
-                    refText = getTextStar(blockElement.querySelector("[data-node-id]"));
-                    return true;
-                }
-            });
-            if (refText) {
-                return refText;
+    } else if ("NodeHTMLBlock" === dataType) {
+        refText = "HTML";
+    } else if ("NodeAttributeView" === dataType) {
+        refText = blockElement.querySelector(".av__title").textContent || window.siyuan.languages.database;
+    } else if ("NodeThematicBreak" === dataType) {
+        refText = window.siyuan.languages.line;
+    } else if ("NodeIFrame" === dataType) {
+        refText = "IFrame";
+    } else if ("NodeWidget" === dataType) {
+        refText = window.siyuan.languages.widget;
+    } else if ("NodeVideo" === dataType) {
+        refText = window.siyuan.languages.video;
+    } else if ("NodeAudio" === dataType) {
+        refText = window.siyuan.languages.audio;
+    } else if (["NodeCodeBlock", "NodeTable"].includes(dataType)) {
+        refText = getPlainText(blockElement);
+    } else if (blockElement.classList.contains("render-node")) {
+        // 需在嵌入块后，代码块前
+        refText += blockElement.dataset.subtype || Lute.UnEscapeHTMLStr(blockElement.getAttribute("data-content"));
+    } else if (["NodeBlockquote", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(dataType)) {
+        Array.from(blockElement.querySelectorAll("[data-node-id]")).find((item: HTMLElement) => {
+            if (!["NodeBlockquote", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(item.getAttribute("data-type"))) {
+                // 获取子块内容，使用容器块本身的 ID
+                refText = getTextStar(item, true);
+                return true;
             }
-        }
+        });
+    } else if ("NodeCallout" === dataType) {
+        refText = getCalloutInfo(blockElement);
+    }
+    if (contentOnly) {
+        return refText;
     }
     return refText + ` <span data-type="block-ref" data-subtype="s" data-id="${blockElement.getAttribute("data-node-id")}">*</span>`;
 };
@@ -89,7 +91,10 @@ export const getPlainText = (blockElement: HTMLElement, isNested = false) => {
             }
         });
         text = text.slice(0, -1);
-    } else if (!isNested && ["NodeBlockquote", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(dataType)) {
+    } else if (!isNested && ["NodeBlockquote", "NodeCallout", "NodeList", "NodeSuperBlock", "NodeListItem"].includes(dataType)) {
+        if (dataType === "NodeCallout") {
+            text += `${getCalloutInfo(blockElement)}\n`;
+        }
         blockElement.querySelectorAll("[data-node-id]").forEach((item: HTMLElement) => {
             const nestedText = getPlainText(item, true);
             text += nestedText ? nestedText + "\n" : "";
@@ -100,7 +105,7 @@ export const getPlainText = (blockElement: HTMLElement, isNested = false) => {
 
 export const pasteEscaped = async (protyle: IProtyle, nodeElement: Element) => {
     try {
-        let clipText = await readText();
+        let clipText = await readText() || "";
         // 删掉 <span data-type\="text".*>text</span> 标签，只保留文本
         clipText = clipText.replace(/<span data-type="text".*?>(.*?)<\/span>/g, "$1");
 
@@ -150,7 +155,7 @@ export const pasteAsPlainText = async (protyle: IProtyle) => {
     /// #endif
     if (localFiles.length === 0) {
         // Inline-level elements support pasted as plain text https://github.com/siyuan-note/siyuan/issues/8010
-        let textPlain = await readText();
+        let textPlain = await readText() || "";
         if (getSelection().rangeCount > 0) {
             const range = getSelection().getRangeAt(0);
             if (hasClosestByAttribute(range.startContainer, "data-type", "code") || hasClosestByClassName(range.startContainer, "hljs")) {
@@ -407,10 +412,7 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
         tempElement.querySelectorAll("[data-node-id]").forEach((e) => {
             const newId = Lute.NewNodeID();
             e.setAttribute("data-node-id", newId);
-            e.removeAttribute(Constants.CUSTOM_RIFF_DECKS);
-            e.classList.remove("protyle-wysiwyg--select", "protyle-wysiwyg--hl");
-            e.setAttribute("updated", newId.split("-")[0]);
-            e.removeAttribute("refcount");
+            clearBlockElement(e);
             isBlock = true;
         });
         if (nodeElement.classList.contains("table")) {
@@ -470,8 +472,21 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
                 isHTML = true;
             }
 
+            // 判断是否包含多个换行，包含多个换行则很有可能是纯文本（豆包复制粘贴问题，纯文本外面会包裹一个 HTML 标签，但内部是 Markdown 纯文本）
+            let containsNewlines = false;
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = textHTML;
+            const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null);
+            let node: Node | null = null;
+            while ((node = walker.nextNode())) {
+                if (node.nodeValue && (node.nodeValue.match(/\n/g) || []).length >= 2) {
+                    containsNewlines = true;
+                    break;
+                }
+            }
+
             const textHTMLLowercase = textHTML.toLowerCase();
-            if (textPlain && "" !== textPlain.trim() && (textHTML.startsWith("<span") || textHTML.startsWith("<br")) &&
+            if (textPlain && "" !== textPlain.trim() && (textHTML.startsWith("<span") || textHTML.startsWith("<br")) && containsNewlines &&
                 (0 > textHTMLLowercase.indexOf("class=\"katex") && 0 > textHTMLLowercase.indexOf("class=\"math") &&
                     0 > textHTMLLowercase.indexOf("</a>") && 0 > textHTMLLowercase.indexOf("</img>") && 0 > textHTMLLowercase.indexOf("</code>") &&
                     0 > textHTMLLowercase.indexOf("</b>") && 0 > textHTMLLowercase.indexOf("</strong>") &&
@@ -488,9 +503,6 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
         if (isHTML) {
             const tempElement = document.createElement("div");
             tempElement.innerHTML = textHTML;
-            tempElement.querySelectorAll("[style]").forEach((e) => {
-                e.removeAttribute("style");
-            });
             // 移除空的 A 标签
             tempElement.querySelectorAll("a").forEach((e) => {
                 if (e.innerHTML.trim() === "") {
@@ -539,7 +551,7 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
                 processRender(protyle.wysiwyg.element);
                 highlightRender(protyle.wysiwyg.element);
                 avRender(protyle.wysiwyg.element, protyle);
-                scrollCenter(protyle, undefined, false, "smooth");
+                scrollCenter(protyle, undefined, "nearest", "smooth");
             });
             return;
         } else if (files && files.length > 0) {
@@ -592,7 +604,7 @@ export const paste = async (protyle: IProtyle, event: (ClipboardEvent | DragEven
     if (nodeElement.classList.contains("av") && selectCellElement) {
         cellScrollIntoView(nodeElement, selectCellElement);
     } else {
-        scrollCenter(protyle, undefined, false, "smooth");
+        scrollCenter(protyle, undefined, "nearest", "smooth");
     }
 };
 

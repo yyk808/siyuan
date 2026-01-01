@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"mime"
@@ -61,7 +62,7 @@ const (
 )
 
 var (
-	sessionStore = cookie.NewStore([]byte("ATN51UlxVq1Gcvdf"))
+	sessionStore cookie.Store
 
 	HttpMethods = []string{
 		http.MethodGet,
@@ -128,7 +129,7 @@ var (
 	}
 )
 
-func Serve(fastMode bool) {
+func Serve(fastMode bool, cookieKey string) {
 	gin.SetMode(gin.ReleaseMode)
 	ginServer := gin.New()
 	ginServer.UseH2C = true
@@ -142,6 +143,7 @@ func Serve(fastMode bool) {
 		gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedExtensions([]string{".pdf", ".mp3", ".wav", ".ogg", ".mov", ".weba", ".mkv", ".mp4", ".webm", ".flac"})),
 	)
 
+	sessionStore = cookie.NewStore([]byte(cookieKey))
 	sessionStore.Options(sessions.Options{
 		Path:   "/",
 		Secure: util.SSL,
@@ -217,7 +219,15 @@ func Serve(fastMode bool) {
 		// 反代服务器启动失败不影响核心服务器启动
 	}()
 
-	if err = http.Serve(ln, ginServer.Handler()); err != nil {
+	util.HttpServer = &http.Server{
+		Handler: ginServer,
+	}
+
+	if err = util.HttpServer.Serve(ln); err != nil {
+		if errors.Is(err, http.ErrServerClosed) {
+			return
+		}
+
 		if !fastMode {
 			logging.LogErrorf("boot kernel failed: %s", err)
 			os.Exit(logging.ExitCodeUnavailablePort)
@@ -399,7 +409,7 @@ func serveAppearance(ginServer *gin.Engine) {
 		c.File(filePath)
 	})
 
-	siyuan.Static("/stage/", filepath.Join(util.WorkingDir, "stage"))
+	siyuan.Static("/stage", filepath.Join(util.WorkingDir, "stage"))
 }
 
 func serveCheckAuth(ginServer *gin.Engine) {
@@ -562,6 +572,7 @@ func serveDebug(ginServer *gin.Engine) {
 }
 
 func serveWebSocket(ginServer *gin.Engine) {
+	util.WebSocketServer = melody.New()
 	util.WebSocketServer.Config.MaxMessageSize = 1024 * 1024 * 8
 
 	ginServer.GET("/ws", func(c *gin.Context) {

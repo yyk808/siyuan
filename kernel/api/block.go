@@ -28,6 +28,7 @@ import (
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/filesys"
 	"github.com/siyuan-note/siyuan/kernel/model"
+	"github.com/siyuan-note/siyuan/kernel/treenode"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
@@ -660,6 +661,10 @@ func getBlockInfo(c *gin.Context) {
 		ret.Code = 3
 		ret.Msg = model.Conf.Language(56)
 		return
+	} else if errors.Is(err, treenode.ErrSpecTooNew) {
+		ret.Code = -1
+		ret.Msg = model.Conf.Language(275)
+		return
 	}
 
 	block, _ := model.GetBlock(id, tree)
@@ -735,6 +740,42 @@ func getBlockDOMs(c *gin.Context) {
 	}
 
 	doms := model.GetBlockDOMs(ids)
+	ret.Data = doms
+}
+
+func getBlockDOMWithEmbed(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	id := arg["id"].(string)
+	dom := model.GetBlockDOMWithEmbed(id)
+	ret.Data = map[string]string{
+		"id":  id,
+		"dom": dom,
+	}
+}
+
+func getBlockDOMsWithEmbed(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	idsArg := arg["ids"].([]interface{})
+	var ids []string
+	for _, id := range idsArg {
+		ids = append(ids, id.(string))
+	}
+
+	doms := model.GetBlockDOMsWithEmbed(ids)
 	ret.Data = doms
 }
 

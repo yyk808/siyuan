@@ -3,7 +3,7 @@ import {Tab} from "../Tab";
 import {setPanelFocus} from "../util";
 import {getDockByType} from "../tabUtil";
 /// #endif
-import {fetchPost} from "../../util/fetch";
+import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {updateHotkeyAfterTip} from "../../protyle/util/compatibility";
 import {Model} from "../Model";
 import {needSubscribe} from "../../util/needSubscribe";
@@ -308,11 +308,11 @@ ${data.shorthandContent}
                     });
                     confirmDialog(window.siyuan.languages.deleteOpConfirm, `${window.siyuan.languages.confirmDelete} ${removeTitle}?`, () => {
                         if (itemElement) {
-                            this.remove(itemElement.dataset.id);
+                            this.remove([itemElement.dataset.id]);
                         } else if (detailsElement.classList.contains("fn__none")) {
                             this.remove();
                         } else {
-                            this.remove(detailsElement.getAttribute("data-id"));
+                            this.remove([detailsElement.getAttribute("data-id")]);
                         }
                     }, undefined, true);
                 }
@@ -332,22 +332,18 @@ ${data.shorthandContent}
         window.siyuan.menus.menu.popup({x: event.clientX, y: event.clientY + 16});
     }
 
-    private remove(id?: string) {
-        let ids: string[];
-        if (id) {
-            ids = [id];
-        } else {
-            ids = this.selectIds;
+    private remove(removeIds?: string[]) {
+        if (!removeIds) {
+            removeIds = this.selectIds;
         }
-        fetchPost("/api/inbox/removeShorthands", {ids}, () => {
-            if (id) {
+        fetchPost("/api/inbox/removeShorthands", {ids: removeIds}, () => {
+            if (removeIds) {
                 this.back();
-                this.selectIds.find((item, index) => {
-                    if (item === id) {
-                        this.selectIds.splice(index, 1);
-                        return true;
+                for (let i = this.selectIds.length - 1; i >= 0; i--) {
+                    if (removeIds.includes(this.selectIds[i])) {
+                        this.selectIds.splice(i, 1);
                     }
-                });
+                }
             } else {
                 this.selectIds = [];
             }
@@ -357,33 +353,34 @@ ${data.shorthandContent}
     }
 
     private move(ids: string[]) {
-        movePathTo((toPath, toNotebook) => {
-            ids.forEach(item => {
-                fetchPost("/api/inbox/getShorthand", {
-                    id: item
-                }, (response) => {
-                    // 处理第三方收件箱的双重数据嵌套
-                    const shorthandData = response.data.data || response.data;
+        movePathTo({
+            cb: async (toPath, toNotebook) => {
+                for (let i = 0; i < ids.length; i++) {
+                    const idItem = ids[i];
+                    const response = await fetchSyncPost("/api/inbox/getShorthand", {
+                        id: idItem
+                    });
+                    const shorthandData = (response.data as any)?.data || response.data;
                     if (!shorthandData || !shorthandData.oId) {
                         console.error("Invalid shorthand data received:", response);
-                        return;
+                        continue;
                     }
                     this.data[shorthandData.oId] = shorthandData;
                     let md = shorthandData.shorthandMd;
                     if ("" === md && "" === shorthandData.shorthandContent && "" != shorthandData.shorthandURL) {
                         md = "[" + shorthandData.shorthandTitle + "](" + shorthandData.shorthandURL + ")";
                     }
-                    fetchPost("/api/filetree/createDoc", {
+                    await fetchSyncPost("/api/filetree/createDoc", {
                         notebook: toNotebook[0],
                         path: pathPosix().join(getDisplayName(toPath[0], false, true), Lute.NewNodeID() + ".sy"),
                         title: replaceFileName(shorthandData.shorthandTitle),
-                        md: md,
+                        md,
                         listDocTree: true,
-                    }, () => {
-                        this.remove(item);
                     });
-                });
-            });
+                }
+                this.remove(ids);
+            },
+            flashcard: false
         });
     }
 

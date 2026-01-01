@@ -29,6 +29,7 @@ import (
 	"github.com/88250/lute/parse"
 	"github.com/88250/lute/render"
 	"github.com/emirpasic/gods/sets/hashset"
+	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/av"
 	"github.com/siyuan-note/siyuan/kernel/filesys"
 	"github.com/siyuan-note/siyuan/kernel/sql"
@@ -36,6 +37,87 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/treenode"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
+
+func PushReloadPlugin(upsertCodePluginSet, upsertDataPluginSet, unloadPluginNameSet, uninstallPluginNameSet *hashset.Set, excludeApp string) {
+	// 集合去重
+	if nil != uninstallPluginNameSet {
+		for _, n := range uninstallPluginNameSet.Values() {
+			pluginName := n.(string)
+			if nil != upsertCodePluginSet {
+				upsertCodePluginSet.Remove(pluginName)
+			}
+			if nil != upsertDataPluginSet {
+				upsertDataPluginSet.Remove(pluginName)
+			}
+			if nil != unloadPluginNameSet {
+				unloadPluginNameSet.Remove(pluginName)
+			}
+		}
+	}
+	if nil != unloadPluginNameSet {
+		for _, n := range unloadPluginNameSet.Values() {
+			pluginName := n.(string)
+			if nil != upsertCodePluginSet {
+				upsertCodePluginSet.Remove(pluginName)
+			}
+			if nil != upsertDataPluginSet {
+				upsertDataPluginSet.Remove(pluginName)
+			}
+		}
+	}
+	if nil != upsertCodePluginSet {
+		for _, n := range upsertCodePluginSet.Values() {
+			pluginName := n.(string)
+			if nil != upsertDataPluginSet {
+				upsertDataPluginSet.Remove(pluginName)
+			}
+		}
+	}
+
+	upsertCodePlugins, upsertDataPlugins, unloadPlugins, uninstallPlugins := []string{}, []string{}, []string{}, []string{}
+	if nil != upsertCodePluginSet {
+		for _, n := range upsertCodePluginSet.Values() {
+			upsertCodePlugins = append(upsertCodePlugins, n.(string))
+		}
+	}
+	if nil != upsertDataPluginSet {
+		for _, n := range upsertDataPluginSet.Values() {
+			upsertDataPlugins = append(upsertDataPlugins, n.(string))
+		}
+	}
+	if nil != unloadPluginNameSet {
+		for _, n := range unloadPluginNameSet.Values() {
+			unloadPlugins = append(unloadPlugins, n.(string))
+		}
+	}
+	if nil != uninstallPluginNameSet {
+		for _, n := range uninstallPluginNameSet.Values() {
+			uninstallPlugins = append(uninstallPlugins, n.(string))
+		}
+	}
+
+	pushReloadPlugin0(upsertCodePlugins, upsertDataPlugins, unloadPlugins, uninstallPlugins, excludeApp)
+}
+
+func pushReloadPlugin0(upsertCodePlugins, upsertDataPlugins, unloadPlugins, uninstallPlugins []string, excludeApp string) {
+	logging.LogInfof("reload plugins [codeChanges=%v, dataChanges=%v, unloads=%v, uninstalls=%v]", upsertCodePlugins, upsertDataPlugins, unloadPlugins, uninstallPlugins)
+	if "" == excludeApp {
+		util.BroadcastByType("main", "reloadPlugin", 0, "", map[string]interface{}{
+			"upsertCodePlugins": upsertCodePlugins,
+			"upsertDataPlugins": upsertDataPlugins,
+			"unloadPlugins":     unloadPlugins,
+			"uninstallPlugins":  uninstallPlugins,
+		})
+		return
+	}
+
+	util.BroadcastByTypeAndExcludeApp(excludeApp, "main", "reloadPlugin", 0, "", map[string]interface{}{
+		"upsertCodePlugins": upsertCodePlugins,
+		"upsertDataPlugins": upsertDataPlugins,
+		"unloadPlugins":     unloadPlugins,
+		"uninstallPlugins":  uninstallPlugins,
+	})
+}
 
 func refreshDocInfo(tree *parse.Tree) {
 	if nil == tree {
@@ -61,7 +143,7 @@ func refreshParentDocInfo(tree *parse.Tree) {
 	}
 
 	luteEngine := lute.New()
-	renderer := render.NewJSONRenderer(parentTree, luteEngine.RenderOptions)
+	renderer := render.NewJSONRenderer(parentTree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 	data := renderer.Render()
 	refreshDocInfo0(parentTree, uint64(len(data)))
 }
@@ -330,7 +412,7 @@ func updateAttributeViewBlockText(updatedDefNodes map[string]*ast.Node) {
 				av.SaveAttributeView(attrView)
 				ReloadAttrView(avID)
 
-				refreshRelatedSrcAvs(avID)
+				refreshRelatedSrcAvs(avID, nil)
 			}
 		}
 	}

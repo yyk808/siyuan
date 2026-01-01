@@ -68,12 +68,30 @@ try {
     app.exit();
 }
 
-const windowNavigate = (currentWindow) => {
+const windowNavigate = (currentWindow, windowType) => {
     currentWindow.webContents.on("will-navigate", (event) => {
         const url = event.url;
         if (url.startsWith(localServer)) {
-            return;
+            try {
+                const pathname = new URL(url).pathname;
+                // 所有窗口都允许认证页面
+                if (pathname === "/check-auth" || pathname === "/") {
+                    return;
+                }
+                if (pathname === "/stage/build/app/" && windowType === "app") {
+                    return;
+                }
+                if (pathname === "/stage/build/app/window.html" && windowType === "window") {
+                    return;
+                }
+                if (pathname.startsWith("/export/temp/") && windowType === "export") {
+                    return;
+                }
+            } catch (e) {
+                return;
+            }
         }
+        // 其他链接使用浏览器打开
         event.preventDefault();
         shell.openExternal(url);
     });
@@ -196,7 +214,9 @@ const showErrorWindow = (title, content) => {
     const errWindow = new BrowserWindow({
         width: Math.floor(screen.getPrimaryDisplay().size.width * 0.5),
         height: Math.floor(screen.getPrimaryDisplay().workAreaSize.height * 0.8),
-        frame: false,
+        frame: "darwin" === process.platform,
+        titleBarStyle: "hidden",
+        fullscreenable: false,
         icon: path.join(appDir, "stage", "icon-large.png"),
         webPreferences: {
             nodeIntegration: true, webviewTag: true, webSecurity: false, contextIsolation: false,
@@ -325,6 +345,7 @@ const initMainWindow = () => {
         fullscreenable: true,
         fullscreen: windowState.fullscreen,
         trafficLightPosition: {x: 8, y: 8},
+        transparent: "darwin" === process.platform, // 避免缩放窗口时出现边框
         webPreferences: {
             nodeIntegration: true,
             webviewTag: true,
@@ -352,16 +373,21 @@ const initMainWindow = () => {
     }).then((response) => {
         setProxy(`${response.data.proxy.scheme}://${response.data.proxy.host}:${response.data.proxy.port}`, currentWindow.webContents).then(() => {
             // 加载主界面
-            currentWindow.loadURL(getServer() + "/stage/build/app/index.html?v=" + new Date().getTime());
+            currentWindow.loadURL(getServer() + "/stage/build/app/?v=" + new Date().getTime());
         });
     });
 
-    currentWindow.webContents.session.setSpellCheckerLanguages(["en-US"]);
-
     // 发起互联网服务请求时绕过安全策略 https://github.com/siyuan-note/siyuan/issues/5516
     currentWindow.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-        if (-1 < details.url.indexOf("bili")) {
+        if (-1 < details.url.toLowerCase().indexOf("bili")) {
             // B 站不移除 Referer https://github.com/siyuan-note/siyuan/issues/94
+            cb({requestHeaders: details.requestHeaders});
+            return;
+        }
+
+        if (-1 < details.url.toLowerCase().indexOf("youtube")) {
+            // YouTube 设置 Referer https://github.com/siyuan-note/siyuan/issues/16319
+            details.requestHeaders["Referer"] = "https://b3log.org/siyuan/";
             cb({requestHeaders: details.requestHeaders});
             return;
         }
@@ -387,10 +413,7 @@ const initMainWindow = () => {
     });
 
     currentWindow.webContents.on("did-finish-load", () => {
-        let siyuanOpenURL;
-        if ("win32" === process.platform || "linux" === process.platform) {
-            siyuanOpenURL = process.argv.find((arg) => arg.startsWith("siyuan://"));
-        }
+        let siyuanOpenURL = process.argv.find((arg) => arg.startsWith("siyuan://"));
         if (siyuanOpenURL) {
             if (currentWindow.isMinimized()) {
                 currentWindow.restore();
@@ -445,7 +468,7 @@ const initMainWindow = () => {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
     // 当前页面链接使用浏览器打开
-    windowNavigate(currentWindow);
+    windowNavigate(currentWindow, "app");
     currentWindow.on("close", (event) => {
         if (currentWindow && !currentWindow.isDestroyed()) {
             currentWindow.webContents.send("siyuan-save-close", false);
@@ -602,7 +625,7 @@ const initKernel = (workspace, port, lang) => {
                 writeLog("get kernel version failed: " + e.message);
                 if (14 < ++count) {
                     writeLog("get kernel ver failed");
-                    showErrorWindow("⚠️ 获取内核服务端口失败 Failed to get kernel serve port", "<div>获取内核服务端口失败，请确保程序拥有网络权限并不受防火墙和杀毒软件阻止。</div><div>Failed to get kernel serve port, please make sure the program has network permissions and is not blocked by firewalls and antivirus software.</div>");
+                    showErrorWindow("⚠️ 获取内核服务端口失败 Failed to Obtain Kernel Service Port", "<div>获取内核服务端口失败，请确保程序拥有网络权限并不受防火墙和杀毒软件阻止。</div><div>Failed to obtain kernel service port. Please ensure SiYuan has network permissions and is not blocked by firewalls or antivirus software.</div>");
                     bootWindow.destroy();
                     resolve(false);
                     return;
@@ -780,6 +803,9 @@ app.whenReady().then(() => {
         if (data.cmd === "getContentsId") {
             return event.sender.id;
         }
+        if (data.cmd === "availableSpellCheckerLanguages") {
+            return event.sender.session.availableSpellCheckerLanguages;
+        }
         if (data.cmd === "setProxy") {
             return setProxy(data.proxyURL, event.sender);
         }
@@ -817,10 +843,11 @@ app.whenReady().then(() => {
         if (data.cmd === "siyuan-open-file") {
             let hasMatch = false;
             BrowserWindow.getAllWindows().find(item => {
-                if (item.webContents.id === event.sender.id) {
+                const url = new URL(item.webContents.getURL());
+                if (item.webContents.id === event.sender.id || data.port !== url.port) {
                     return;
                 }
-                const ids = decodeURIComponent(new URL(item.webContents.getURL()).hash.substring(1)).split("\u200b");
+                const ids = decodeURIComponent(url.hash.substring(1)).split("\u200b");
                 const options = JSON.parse(data.options);
                 if (ids.includes(options.rootID) || ids.includes(options.assetPath)) {
                     item.focus();
@@ -866,6 +893,13 @@ app.whenReady().then(() => {
             event.sender.send("siyuan-event", "leave-full-screen");
         });
     });
+    ipcMain.on("siyuan-focus-fix", (event) => {
+        const currentWindow = getWindowByContentId(event.sender.id);
+        if (currentWindow && process.platform === "win32") {
+            currentWindow.blur();
+            currentWindow.focus();
+        }
+    });
     ipcMain.on("siyuan-cmd", (event, data) => {
         let cmd = data;
         let webContentsId = event.sender.id;
@@ -879,6 +913,11 @@ app.whenReady().then(() => {
         switch (cmd) {
             case "showItemInFolder":
                 shell.showItemInFolder(data.filePath);
+                break;
+            case "setSpellCheckerLanguages":
+                BrowserWindow.getAllWindows().forEach(item => {
+                    item.webContents.session.setSpellCheckerLanguages(data.languages);
+                });
                 break;
             case "openPath":
                 shell.openPath(data.filePath);
@@ -1032,7 +1071,7 @@ app.whenReady().then(() => {
         printWin.center();
         printWin.webContents.userAgent = "SiYuan/" + appVer + " https://b3log.org/siyuan Electron " + printWin.webContents.userAgent;
         printWin.loadURL(data);
-        windowNavigate(printWin);
+        windowNavigate(printWin, "export");
     });
     ipcMain.on("siyuan-quit", (event, port) => {
         exitApp(port);
@@ -1060,6 +1099,7 @@ app.whenReady().then(() => {
             minWidth: 493,
             minHeight: 376,
             fullscreenable: true,
+            transparent: "darwin" === process.platform, // 避免缩放窗口时出现边框
             frame: "darwin" === process.platform,
             icon: path.join(appDir, "stage", "icon-large.png"),
             titleBarStyle: "hidden",
@@ -1081,7 +1121,7 @@ app.whenReady().then(() => {
         win.webContents.userAgent = "SiYuan/" + appVer + " https://b3log.org/siyuan Electron " + win.webContents.userAgent;
         win.webContents.session.setSpellCheckerLanguages(["en-US"]);
         win.loadURL(data.url);
-        windowNavigate(win);
+        windowNavigate(win, "window");
         win.on("close", (event) => {
             if (win && !win.isDestroyed()) {
                 win.webContents.send("siyuan-save-close");

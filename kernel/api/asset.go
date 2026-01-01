@@ -113,7 +113,15 @@ func getImageOCRText(c *gin.Context) {
 		return
 	}
 
-	path := arg["path"].(string)
+	var path string
+	if nil == arg["path"] {
+		ret.Data = map[string]interface{}{
+			"text": "",
+		}
+		return
+	} else {
+		path = arg["path"].(string)
+	}
 
 	ret.Data = map[string]interface{}{
 		"text": util.GetAssetText(path),
@@ -396,6 +404,45 @@ func uploadCloud(c *gin.Context) {
 	}
 
 	util.PushMsg(fmt.Sprintf(model.Conf.Language(41), count), 3000)
+}
+
+func uploadCloudByAssetsPaths(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	arg, ok := util.JsonArg(c, ret)
+	if !ok {
+		return
+	}
+
+	if nil == arg["paths"] {
+		ret.Code = -1
+		ret.Msg = "paths is required"
+		return
+	}
+
+	pathsArg := arg["paths"].([]interface{})
+	var assets []string
+	for _, pathArg := range pathsArg {
+		assets = append(assets, pathArg.(string))
+	}
+
+	count, err := model.UploadAssets2CloudByAssetsPaths(assets)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		ret.Data = map[string]interface{}{"closeTimeout": 3000}
+		return
+	}
+
+	ignorePushMsg := false
+	if nil != arg["ignorePushMsg"] {
+		ignorePushMsg = arg["ignorePushMsg"].(bool)
+	}
+
+	if !ignorePushMsg {
+		util.PushMsg(fmt.Sprintf(model.Conf.Language(41), count), 3000)
+	}
 }
 
 func insertLocalAssets(c *gin.Context) {

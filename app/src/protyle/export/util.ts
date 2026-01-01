@@ -12,8 +12,6 @@ import {highlightRender} from "../render/highlightRender";
 import {processRender} from "../util/processCode";
 import {isIPhone, isSafari, openByMobile, setStorageVal} from "../util/compatibility";
 import {useShell} from "../../util/pathName";
-import {isPaidUser} from "../../util/needSubscribe";
-import {getCloudURL} from "../../config/util/about";
 
 export const afterExport = (exportPath: string, msgId: string) => {
     /// #if !BROWSER
@@ -125,7 +123,6 @@ export const exportImage = (id: string) => {
         updateWatermark();
     });
     const updateWatermark = () => {
-        // 移除付费检查，所有用户都可以使用水印功能
         const watermarkPreviewElement = exportDialog.element.querySelector(".export-img__watermark") as HTMLElement;
         watermarkPreviewElement.innerHTML = "";
         if (watermarkElement.checked) {

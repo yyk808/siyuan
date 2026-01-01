@@ -104,13 +104,13 @@ func MoveLocalShorthands(boxID, hPath, parentID string) (retIDs []string, err er
 				return
 			}
 
-			retIDs = append(retIDs, retID)
-			toRemoves = append(toRemoves, p)
-			box.addMaxSort("/", retID)
-		}
-	} else { // 不为空的话将所有速记合并到指定路径的文档中
-		if !strings.HasPrefix(hPath, "/") {
-			hPath = "/" + hPath
+				retIDs = append(retIDs, retID)
+				toRemoves = append(toRemoves, p)
+				box.setSortByConf("/", retID)
+			}
+		} else { // 不为空的话将所有速记合并到指定路径的文档中
+			if !strings.HasPrefix(hPath, "/") {
+				hPath = "/" + hPath
 		}
 
 		buff := bytes.Buffer{}

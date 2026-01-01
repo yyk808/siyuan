@@ -464,15 +464,15 @@ export class Files extends Model {
                 });
             }
         });
-        this.element.addEventListener("dragend", () => {
+        this.element.addEventListener("dragend", (event) => {
             this.parent.panelElement.classList.remove("sy__file--disablehover");
-            this.element.querySelectorAll(".b3-list-item--focus").forEach((item: HTMLElement, index) => {
+            this.element.querySelectorAll('.b3-list-item[style*="opacity: 0.38;"]').forEach((item: HTMLElement, index) => {
                 item.style.opacity = "";
                 // https://github.com/siyuan-note/siyuan/issues/11587
-                if (index === 0) {
-                    const airaLabelElement = item.querySelector(".ariaLabel");
-                    if (airaLabelElement) {
-                        showTooltip(airaLabelElement.getAttribute("aria-label"), airaLabelElement);
+                if (index === 0 && hasClosestByClassName(document.elementFromPoint(event.clientX, event.clientY), "sy__file")) {
+                    const ariaLabelElement = item.querySelector(".ariaLabel");
+                    if (ariaLabelElement) {
+                        showTooltip(ariaLabelElement.getAttribute("aria-label"), ariaLabelElement);
                     }
                 }
             });
@@ -488,13 +488,6 @@ export class Files extends Model {
         this.element.addEventListener("dragover", (event: DragEvent & { target: HTMLElement }) => {
             if (window.siyuan.config.readonly || event.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
                 return;
-            }
-            const contentRect = this.element.getBoundingClientRect();
-            if (event.clientY < contentRect.top + Constants.SIZE_SCROLL_TB || event.clientY > contentRect.bottom - Constants.SIZE_SCROLL_TB) {
-                this.element.scroll({
-                    top: this.element.scrollTop + (event.clientY < contentRect.top + Constants.SIZE_SCROLL_TB ? -Constants.SIZE_SCROLL_STEP : Constants.SIZE_SCROLL_STEP),
-                    behavior: "smooth"
-                });
             }
             let liElement = hasClosestByTag(event.target, "LI");
             if (!liElement) {
@@ -751,6 +744,7 @@ export class Files extends Model {
                             fetchPost("/api/filetree/listDocsByPath", {
                                 notebook: toURL,
                                 path: toDir === "/" ? "/" : toDir + ".sy",
+                                app: Constants.SIYUAN_APPID,
                             }, response => {
                                 if (response.data.path === "/" && response.data.files.length === 0) {
                                     showMessage(window.siyuan.languages.emptyContent);
@@ -776,6 +770,9 @@ export class Files extends Model {
         if (liElement) {
             liElement.setAttribute("data-count", data.data.subFileCount);
             liElement.querySelector(".ariaLabel")?.setAttribute("aria-label", this.genDocAriaLabel(data.data, escapeGreat));
+            if (data.data.subFileCount === 0) {
+                liElement.querySelector(".b3-list-item__toggle")?.classList.add("fn__hidden");
+            }
         }
     }
 
@@ -1103,6 +1100,9 @@ data-type="navigation-root" data-path="/">
             return;
         }
         const liElement = this.element.querySelector(`ul[data-url="${data.box}"] li[data-path="${data.path}"]`);
+        if (!liElement) {
+            return;
+        }
         if (liElement.nextElementSibling && liElement.nextElementSibling.tagName === "UL") {
             // 文件展开时，刷新
             liElement.nextElementSibling.remove();
@@ -1123,7 +1123,8 @@ data-type="navigation-root" data-path="/">
             } else if (filePath.startsWith(item.path.replace(".sy", ""))) {
                 const response = await fetchSyncPost("/api/filetree/listDocsByPath", {
                     notebook: data.box,
-                    path: item.path
+                    path: item.path,
+                    app: Constants.SIYUAN_APPID,
                 });
                 newLiElement = await this.selectItem(response.data.box, filePath, response.data, setStorage, isSetCurrent);
             }
@@ -1160,6 +1161,7 @@ data-type="navigation-root" data-path="/">
         fetchPost("/api/filetree/listDocsByPath", {
             notebook: notebookId,
             path: liElement.getAttribute("data-path"),
+            app: Constants.SIYUAN_APPID,
         }, response => {
             if (response.data.path === "/" && response.data.files.length === 0) {
                 newFile({
@@ -1215,7 +1217,8 @@ data-type="navigation-root" data-path="/">
         } else {
             const response = await fetchSyncPost("/api/filetree/listDocsByPath", {
                 notebook: notebookId,
-                path: currentPath
+                path: currentPath,
+                app: Constants.SIYUAN_APPID,
             });
             liElement = await this.onLsSelect(response.data, filePath, setStorage, isSetCurrent);
         }

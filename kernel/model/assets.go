@@ -51,6 +51,19 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
+func GetAssetPathByHash(hash string) string {
+	assetHash := cache.GetAssetHash(hash)
+	if nil == assetHash {
+		sqlAsset := sql.QueryAssetByHash(hash)
+		if nil == sqlAsset {
+			return ""
+		}
+		cache.SetAssetHash(sqlAsset.Hash, sqlAsset.Path)
+		return sqlAsset.Path
+	}
+	return assetHash.Path
+}
+
 func HandleAssetsRemoveEvent(assetAbsPath string) {
 	removeIndexAssetContent(assetAbsPath)
 	removeAssetThumbnail(assetAbsPath)
@@ -503,6 +516,15 @@ func UploadAssets2Cloud(id string) (count int, err error) {
 	return
 }
 
+func UploadAssets2CloudByAssetsPaths(assetPaths []string) (count int, err error) {
+	if !IsSubscriber() {
+		return
+	}
+
+	count, err = uploadAssets2Cloud(assetPaths, bizTypeUploadAssets)
+	return
+}
+
 const (
 	bizTypeUploadAssets  = "upload-assets"
 	bizTypeExport2Liandi = "export-liandi"
@@ -648,6 +670,7 @@ func RemoveUnusedAssets() (ret []string) {
 
 			hash, _ := util.GetEtag(p)
 			hashes = append(hashes, hash)
+			cache.RemoveAssetHash(hash)
 		}
 	}
 
@@ -666,8 +689,10 @@ func RemoveUnusedAssets() (ret []string) {
 				}
 			}
 
-			if err := filelock.Remove(absPath); err != nil {
-				logging.LogErrorf("remove unused asset [%s] failed: %s", absPath, err)
+			if removeErr := filelock.RemoveWithoutFatal(absPath); removeErr != nil {
+				logging.LogErrorf("remove unused asset [%s] failed: %s", absPath, removeErr)
+				util.PushErrMsg(fmt.Sprintf("%s", removeErr), 7000)
+				return
 			}
 			util.RemoveAssetText(unusedAsset)
 		}
@@ -703,10 +728,13 @@ func RemoveUnusedAsset(p string) (ret string) {
 
 		hash, _ := util.GetEtag(absPath)
 		sql.BatchRemoveAssetsQueue([]string{hash})
+		cache.RemoveAssetHash(hash)
 	}
 
-	if err = filelock.Remove(absPath); err != nil {
+	if err = filelock.RemoveWithoutFatal(absPath); err != nil {
 		logging.LogErrorf("remove unused asset [%s] failed: %s", absPath, err)
+		util.PushErrMsg(fmt.Sprintf("%s", err), 7000)
+		return
 	}
 	ret = absPath
 

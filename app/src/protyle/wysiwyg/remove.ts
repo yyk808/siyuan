@@ -2,7 +2,7 @@ import {focusBlock, focusByRange, focusByWbr, getSelectionOffset, setLastNodeRan
 import {
     getContenteditableElement,
     getLastBlock,
-    getNextBlock,
+    getNextBlock, getParentBlock,
     getPreviousBlock,
     getTopAloneElement,
     getTopEmptyElement,
@@ -12,14 +12,14 @@ import {
 import {transaction, turnsIntoOneTransaction, turnsIntoTransaction, updateTransaction} from "./transaction";
 import {cancelSB, genEmptyElement} from "../../block/util";
 import {listOutdent, updateListOrder} from "./list";
-import {zoomOut} from "../../menus/protyle";
+import {setFold, zoomOut} from "../../menus/protyle";
 import {preventScroll} from "../scroll/preventScroll";
 import {hideElements} from "../ui/hideElements";
 import {Constants} from "../../constants";
 import {scrollCenter} from "../../util/highlightById";
 import {isMobile} from "../../util/functions";
 import {mathRender} from "../render/mathRender";
-import {hasClosestByClassName} from "../util/hasClosest";
+import {hasClosestBlock, hasClosestByClassName} from "../util/hasClosest";
 import {getInstanceById} from "../../layout/util";
 import {Tab} from "../../layout/Tab";
 import {Backlink} from "../../layout/dock/Backlink";
@@ -52,7 +52,12 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         let listElement: Element;
         let topParentElement: Element;
         hideElements(["select"], protyle);
-        let foldPreviousId: string;
+        const unfoldData: {
+            [key: string]: {
+                element: Element,
+                previousID?: string
+            }
+        } = {};
         for (let i = 0; i < selectElements.length; i++) {
             const item = selectElements[i];
             const topElement = getTopAloneElement(item);
@@ -85,29 +90,29 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
                     id: topElement.getAttribute("data-node-id"),
                 });
                 deletes.push(...foldTransaction.data.doOperations.slice(1));
-                let previousID = topElement.previousElementSibling ? topElement.previousElementSibling.getAttribute("data-node-id") : "";
-                if (typeof foldPreviousId !== "undefined") {
-                    previousID = foldPreviousId;
-                }
                 foldTransaction.data.undoOperations.forEach((operationItem: IOperation, index: number) => {
-                    operationItem.previousID = previousID;
                     if (index > 0) {
                         operationItem.context = {
                             ignoreProcess: "true"
                         };
                     }
                 });
+                foldTransaction.data.undoOperations.reverse();
+                if (topElement.previousElementSibling &&
+                    topElement.previousElementSibling.getAttribute("data-type") === "NodeHeading" &&
+                    topElement.previousElementSibling.getAttribute("fold") === "1") {
+                    const foldId = topElement.previousElementSibling.getAttribute("data-node-id");
+                    if (!unfoldData[foldId]) {
+                        const foldTransaction = await fetchSyncPost("/api/block/getHeadingDeleteTransaction", {
+                            id: foldId,
+                        });
+                        unfoldData[foldId] = {
+                            element: topElement.previousElementSibling,
+                            previousID: foldTransaction.data.doOperations[foldTransaction.data.doOperations.length - 1].id
+                        };
+                    }
+                }
                 inserts.push(...foldTransaction.data.undoOperations);
-                // 折叠块和非折叠块同时删除时撤销异常 https://github.com/siyuan-note/siyuan/issues/11312
-                let foldPreviousElement = getPreviousBlock(topElement);
-                while (foldPreviousElement && foldPreviousElement.childElementCount === 3) {
-                    foldPreviousElement = getPreviousBlock(foldPreviousElement);
-                }
-                if (foldPreviousElement) {
-                    foldPreviousId = foldPreviousElement.getAttribute("data-node-id");
-                } else {
-                    foldPreviousId = "";
-                }
                 // https://github.com/siyuan-note/siyuan/issues/4422
                 topElement.firstElementChild.removeAttribute("contenteditable");
                 topElement.remove();
@@ -117,24 +122,48 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
                     data = protyle.lute.SpinBlockDOM(topElement.outerHTML);  // 防止图表撤销问题
                 }
                 let previousID = topElement.previousElementSibling ? topElement.previousElementSibling.getAttribute("data-node-id") : "";
-                if (typeof foldPreviousId !== "undefined") {
-                    previousID = foldPreviousId;
+                if (topElement.previousElementSibling &&
+                    topElement.previousElementSibling.getAttribute("data-type") === "NodeHeading" &&
+                    topElement.previousElementSibling.getAttribute("fold") === "1") {
+                    const foldId = topElement.previousElementSibling.getAttribute("data-node-id");
+                    if (!unfoldData[foldId]) {
+                        const foldTransaction = await fetchSyncPost("/api/block/getHeadingDeleteTransaction", {
+                            id: foldId,
+                        });
+                        unfoldData[foldId] = {
+                            element: topElement.previousElementSibling,
+                            previousID: foldTransaction.data.doOperations[foldTransaction.data.doOperations.length - 1].id
+                        };
+                    }
+                    previousID = unfoldData[foldId].previousID;
                 }
                 inserts.push({
                     action: "insert",
                     data,
                     id,
                     previousID,
-                    parentID: topElement.parentElement.getAttribute("data-node-id") || protyle.block.parentID
+                    parentID: getParentBlock(topElement)?.getAttribute("data-node-id") || protyle.block.parentID
                 });
                 if (topElement.getAttribute("data-subtype") === "o" && topElement.classList.contains("li")) {
                     listElement = topElement.parentElement;
                 } else {
                     listElement = undefined;
                 }
+                // https://github.com/siyuan-note/siyuan/issues/12327
+                if (topElement.parentElement.classList.contains("li") && topElement.parentElement.childElementCount === 4 &&
+                    topElement.parentElement.getAttribute("fold") === "1") {
+                    unfoldData[topElement.parentElement.getAttribute("data-node-id")] = {
+                        element: topElement.parentElement,
+                    };
+                }
                 topElement.remove();
             }
         }
+        Object.keys(unfoldData).forEach(item => {
+            const foldOperations = setFold(protyle, unfoldData[item].element, true, false, false, true);
+            deletes.push(...foldOperations.doOperations);
+            inserts.splice(0, 0, ...foldOperations.undoOperations);
+        });
         if (sideElement) {
             if (protyle.block.showAll && sideElement.classList.contains("protyle-wysiwyg") && protyle.wysiwyg.element.childElementCount === 0) {
                 setTimeout(() => {
@@ -222,13 +251,15 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         return;
     }
 
-    if (!blockElement.previousElementSibling && blockElement.parentElement.getAttribute("data-type") === "NodeBlockquote") {
+    const isCallout = blockElement.parentElement.classList.contains("callout-content");
+    if (!blockElement.previousElementSibling && (blockElement.parentElement.getAttribute("data-type") === "NodeBlockquote" || isCallout)) {
         if (type !== "Delete") {
             range.insertNode(document.createElement("wbr"));
         }
-        const blockParentElement = blockElement.parentElement;
+        const blockParentElement = isCallout ? blockElement.parentElement.parentElement : blockElement.parentElement;
         blockParentElement.insertAdjacentElement("beforebegin", blockElement);
-        if (blockParentElement.childElementCount === 1) {
+        if (isCallout ? blockParentElement.querySelector(".callout-content").childElementCount === 0 :
+            blockParentElement.childElementCount === 1) {
             transaction(protyle, [{
                 action: "move",
                 id: blockElement.getAttribute("data-node-id"),
@@ -300,13 +331,14 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         return;
     }
     if (blockType === "NodeHeading") {
-        if ((blockElement.previousElementSibling &&
-                blockElement.previousElementSibling.getAttribute("data-type") === "NodeHeading" &&
-                blockElement.previousElementSibling.getAttribute("fold") === "1") ||
-            (blockElement.getAttribute("data-type") === "NodeHeading" &&
-                blockElement.getAttribute("fold") === "1")) {
-            focusBlock(blockElement.previousElementSibling, undefined, false);
-            return;
+        if (blockElement.previousElementSibling &&
+            blockElement.previousElementSibling.getAttribute("data-type") === "NodeHeading" &&
+            blockElement.previousElementSibling.getAttribute("fold") === "1") {
+            setFold(protyle, blockElement.previousElementSibling, true, false, false);
+        }
+        if (blockElement.getAttribute("data-type") === "NodeHeading" &&
+            blockElement.getAttribute("fold") === "1") {
+            setFold(protyle, blockElement, true, false, false);
         }
         turnsIntoTransaction({
             protyle: protyle,
@@ -339,7 +371,7 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         return;
     }
 
-    const parentElement = blockElement.parentElement;
+    const parentElement = hasClosestBlock(blockElement.parentElement);
     const editableElement = getContenteditableElement(blockElement);
     const previousLastElement = getLastBlock(previousElement) as HTMLElement;
     if (range.toString() === "" && isMobile() && previousLastElement && previousLastElement.classList.contains("hr") && getSelectionOffset(editableElement).start === 0) {
@@ -381,7 +413,7 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
                 }];
                 blockElement.remove();
                 // 取消超级块
-                if (parentElement.getAttribute("data-type") === "NodeSuperBlock" && parentElement.childElementCount === 2) {
+                if (parentElement && parentElement.getAttribute("data-type") === "NodeSuperBlock" && parentElement.childElementCount === 2) {
                     const sbData = await cancelSB(protyle, parentElement);
                     transaction(protyle, doOperations.concat(sbData.doOperations), sbData.undoOperations.concat(undoOperations));
                 } else {
@@ -414,7 +446,7 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         id: removeId,
         // 不能使用 previousLastElement，否则在超级块下的元素前删除撤销错误
         previousID: blockElement.previousElementSibling?.getAttribute("data-node-id"),
-        parentID: parentElement.getAttribute("data-node-id")
+        parentID: parentElement ? parentElement.getAttribute("data-node-id") : protyle.block.parentID
     }];
     const doOperations: IOperation[] = [{
         action: "delete",
@@ -479,6 +511,14 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
         // 图片前删除到上一个文字块时，图片前有 zwsp
         previousLastElement.outerHTML = protyle.lute.SpinBlockDOM(previousLastElement.outerHTML);
         mathRender(getPreviousBlock(removeElement) as HTMLElement);
+        const removeParentElement = removeElement.parentElement;
+        // https://github.com/siyuan-note/siyuan/issues/12327
+        if (removeParentElement.classList.contains("li") && removeParentElement.childElementCount === 4 &&
+            removeParentElement.getAttribute("fold") === "1") {
+            const foldOperations = setFold(protyle, removeParentElement, true, false, false, true);
+            doOperations.push(...foldOperations.doOperations);
+            undoOperations.splice(0, 0, ...foldOperations.undoOperations);
+        }
         removeElement.remove();
         // extractContents 内容过多时需要进行滚动条重置，否则位置会错位
         protyle.contentElement.scrollTop = scroll;
@@ -489,7 +529,7 @@ export const removeBlock = async (protyle: IProtyle, blockElement: Element, rang
             id: previousId,
         });
     }
-    if (parentElement.getAttribute("data-type") === "NodeSuperBlock" && parentElement.childElementCount === 2) {
+    if (parentElement && parentElement.getAttribute("data-type") === "NodeSuperBlock" && parentElement.childElementCount === 2) {
         const sbData = await cancelSB(protyle, parentElement);
         transaction(protyle, doOperations.concat(sbData.doOperations), sbData.undoOperations.concat(undoOperations));
     } else {
@@ -630,7 +670,8 @@ const removeLi = (protyle: IProtyle, blockElement: Element, range: Range, isDele
                 protyle,
                 selectsElement: selectsElement.reverse(),
                 type: "BlocksMergeSuperBlock",
-                level: "row"
+                level: "row",
+                unfocus: true,
             });
         }
         focusByWbr(protyle.wysiwyg.element, range);
