@@ -1077,7 +1077,7 @@ func GetThirdPartyShorthands(page int) (data map[string]interface{}, err error) 
 						shorthand["shorthandMd"] = content
 						tree := parse.Parse("", []byte(content), luteEngine.ParseOptions)
 						luteEngine.RenderOptions.ProtyleMarkNetImg = false
-						contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions)
+						contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 						shorthand["shorthandContent"] = contentHTML
 					}
 
@@ -1150,7 +1150,7 @@ func GetThirdPartyShorthand(id string) (data map[string]interface{}, err error) 
 			luteEngine := NewLute()
 			tree := parse.Parse("", []byte(content), luteEngine.ParseOptions)
 			luteEngine.RenderOptions.ProtyleMarkNetImg = false
-			contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions)
+			contentHTML := luteEngine.ProtylePreview(tree, luteEngine.RenderOptions, luteEngine.ParseOptions)
 			resultData["shorthandContent"] = contentHTML
 		}
 	}

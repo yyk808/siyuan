@@ -1875,7 +1875,22 @@ func newRepository() (ret *dejavu.Repo, err error) {
 	case conf.ProviderSiYuan:
 		cloudRepo = cloud.NewSiYuan(&cloud.BaseCloud{Conf: cloudConf})
 	case conf.ProviderS3:
-		s3HTTPClient := &http.Client{Transport: httpclient.NewTransport(cloudConf.S3.SkipTlsVerify)}
+		s3Transport := httpclient.NewTransport(cloudConf.S3.SkipTlsVerify)
+		maxConnsPerHost := cloudConf.S3.ConcurrentReqs
+		if maxConnsPerHost < 2 {
+			maxConnsPerHost = 2
+		}
+		if s3Transport.MaxConnsPerHost < maxConnsPerHost {
+			s3Transport.MaxConnsPerHost = maxConnsPerHost
+		}
+		if s3Transport.MaxIdleConnsPerHost < maxConnsPerHost {
+			s3Transport.MaxIdleConnsPerHost = maxConnsPerHost
+		}
+		if s3Transport.MaxIdleConns < maxConnsPerHost*2 {
+			s3Transport.MaxIdleConns = maxConnsPerHost * 2
+		}
+
+		s3HTTPClient := &http.Client{Transport: s3Transport}
 		s3HTTPClient.Timeout = time.Duration(cloudConf.S3.Timeout) * time.Second
 		cloudRepo = cloud.NewS3(&cloud.BaseCloud{Conf: cloudConf}, s3HTTPClient)
 	case conf.ProviderWebDAV:
