@@ -146,7 +146,7 @@ func NodeStaticContent(node *ast.Node, excludeTypes []string, includeTextMarkATi
 
 	if ast.NodeAttributeView == node.Type {
 		if fullAttrView {
-			return getAttributeViewContent(node.AttributeViewID)
+			return av.GetAttributeViewContent(node.AttributeViewID)
 		}
 
 		ret, _ := av.GetAttributeViewName(node.AttributeViewID)
@@ -196,6 +196,7 @@ func nodeStaticContent(node *ast.Node, excludeTypes []string, includeTextMarkATi
 							buf.WriteString(inline.Content())
 						}
 					}
+					buf.WriteByte(' ')
 				}
 			}
 			return ast.WalkContinue

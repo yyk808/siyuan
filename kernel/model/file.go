@@ -755,7 +755,6 @@ func GetDoc(startID, endID, id string, index int, query string, queryTypes map[s
 	}
 	keywords = gulu.Str.RemoveDuplicatedElem(keywords)
 
-	go setRecentDocByTree(tree)
 	return
 }
 
@@ -985,15 +984,19 @@ func DuplicateDoc(tree *parse.Tree) {
 	previousPath := tree.Path
 	resetTree(tree, "Duplicated", false)
 
-	// 复制为副本时移除数据库绑定状态 https://github.com/siyuan-note/siyuan/issues/12294
 	ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
 		if !entering || !n.IsBlock() {
 			return ast.WalkContinue
 		}
 
+		// 复制为副本时移除数据库绑定状态 https://github.com/siyuan-note/siyuan/issues/12294
 		n.RemoveIALAttr(av.NodeAttrNameAvs)
 		n.RemoveIALAttr(av.NodeAttrViewNames)
 		n.RemoveIALAttrsByPrefix(av.NodeAttrViewStaticText)
+
+		// 复制为副本时移除闪卡相关属性 https://github.com/siyuan-note/siyuan/issues/13987
+		n.RemoveIALAttr(NodeAttrRiffDecks)
+
 		return ast.WalkContinue
 	})
 
@@ -1520,8 +1523,10 @@ func RemoveDoc(boxID, p string) {
 
 	FlushTxQueue()
 	luteEngine := util.NewLute()
-	removeDoc(box, p, luteEngine)
+	tree := removeDoc(box, p, luteEngine)
 	IncSync()
+
+	refreshParentDocInfo(tree)
 	return
 }
 
@@ -1533,15 +1538,29 @@ func RemoveDocs(paths []string) {
 	pathsBoxes := getBoxesByPaths(paths)
 	FlushTxQueue()
 	luteEngine := util.NewLute()
+
+	var trees []*parse.Tree
 	for p, box := range pathsBoxes {
-		removeDoc(box, p, luteEngine)
+		tree := removeDoc(box, p, luteEngine)
+		trees = append(trees, tree)
+	}
+
+	parentTrees := map[string]*parse.Tree{}
+	for _, tree := range trees {
+		parentTree := loadParentTree(tree)
+		if nil != parentTree {
+			parentTrees[parentTree.ID] = parentTree
+		}
+	}
+	for _, parentTree := range parentTrees {
+		refreshDocInfo(parentTree)
 	}
 	return
 }
 
-func removeDoc(box *Box, p string, luteEngine *lute.Lute) {
-	tree, _ := filesys.LoadTree(box.ID, p, luteEngine)
-	if nil == tree {
+func removeDoc(box *Box, p string, luteEngine *lute.Lute) (ret *parse.Tree) {
+	ret, _ = filesys.LoadTree(box.ID, p, luteEngine)
+	if nil == ret {
 		return
 	}
 
@@ -1558,16 +1577,16 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) {
 		return
 	}
 
-	generateAvHistory(tree, historyDir)
+	generateAvHistoryInTree(ret, historyDir)
 	copyDocAssetsToDataAssets(box.ID, p)
 
-	removeIDs := treenode.RootChildIDs(tree.ID)
+	removeIDs := treenode.RootChildIDs(ret.ID)
 	dir := path.Dir(p)
-	childrenDir := path.Join(dir, tree.ID)
+	childrenDir := path.Join(dir, ret.ID)
 	existChildren := box.Exist(childrenDir)
 	if existChildren {
-		absChildrenDir := filepath.Join(util.DataDir, tree.Box, childrenDir)
-		historyPath = filepath.Join(historyDir, tree.Box, childrenDir)
+		absChildrenDir := filepath.Join(util.DataDir, ret.Box, childrenDir)
+		historyPath = filepath.Join(historyDir, ret.Box, childrenDir)
 		if err = filelock.Copy(absChildrenDir, historyPath); err != nil {
 			logging.LogErrorf("backup [path=%s] to history [%s] failed: %s", absChildrenDir, historyPath, err)
 			return
@@ -1575,7 +1594,7 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) {
 	}
 	indexHistoryDir(filepath.Base(historyDir), util.NewLute())
 
-	allRemoveRootIDs := []string{tree.ID}
+	allRemoveRootIDs := []string{ret.ID}
 	allRemoveRootIDs = append(allRemoveRootIDs, removeIDs...)
 	allRemoveRootIDs = gulu.Str.RemoveDuplicatedElem(allRemoveRootIDs)
 	for _, rootID := range allRemoveRootIDs {
@@ -1601,7 +1620,6 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) {
 	logging.LogInfof("removed doc [%s%s]", box.ID, p)
 
 	box.removeSort(removeIDs)
-	RemoveRecentDoc(removeIDs)
 	if "/" != dir {
 		others, err := os.ReadDir(filepath.Join(util.DataDir, box.ID, dir))
 		if err == nil && 1 > len(others) {
@@ -1614,9 +1632,8 @@ func removeDoc(box *Box, p string, luteEngine *lute.Lute) {
 		"ids": removeIDs,
 	}
 	util.PushEvent(evt)
-
-	refreshParentDocInfo(tree)
-	task.AppendTask(task.DatabaseIndex, removeDoc0, tree, childrenDir)
+	task.AppendTask(task.DatabaseIndex, removeDoc0, ret, childrenDir)
+	return
 }
 
 func removeDoc0(tree *parse.Tree, childrenDir string) {
@@ -1630,6 +1647,7 @@ func removeDoc0(tree *parse.Tree, childrenDir string) {
 	treenode.RemoveBlockTreesByPathPrefix(childrenDir)
 	sql.RemoveTreePathQueue(tree.Box, childrenDir)
 	cache.RemoveDocIAL(tree.Path)
+	cache.RemoveTreeData(tree.ID)
 	return
 }
 

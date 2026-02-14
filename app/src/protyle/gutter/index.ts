@@ -62,6 +62,7 @@ import {processClonePHElement} from "../render/util";
 import {openFileById} from "../../editor/util";
 import * as path from "path";
 /// #endif
+import {hideMessage, showMessage} from "../../dialog/message";
 import {checkFold} from "../../util/noRelyPCFunction";
 import {clearSelect} from "../util/clear";
 
@@ -1535,7 +1536,7 @@ export class Gutter {
                     hideElements(["gutter"], protyle);
                 }
             }).element);
-        } else if (type === "NodeCodeBlock" && !protyle.disabled && !nodeElement.getAttribute("data-subtype")) {
+        } else if (type === "NodeCodeBlock" && !nodeElement.getAttribute("data-subtype")) {
             window.siyuan.menus.menu.append(new MenuItem({id: "separator_code", type: "separator"}).element);
             const linewrap = nodeElement.getAttribute("linewrap");
             const ligatures = nodeElement.getAttribute("ligatures");
@@ -1549,6 +1550,7 @@ export class Gutter {
                 submenu: [{
                     id: "md31",
                     iconHTML: "",
+                    ignore: protyle.disabled,
                     label: `<div class="fn__flex" style="margin-bottom: 4px"><span>${window.siyuan.languages.md31}</span><span class="fn__space fn__flex-1"></span>
 <input type="checkbox" class="b3-switch fn__flex-center"${linewrap === "true" ? " checked" : ((window.siyuan.config.editor.codeLineWrap && linewrap !== "false") ? " checked" : "")}></div>`,
                     bind(element) {
@@ -1570,6 +1572,7 @@ export class Gutter {
                 }, {
                     id: "md2",
                     iconHTML: "",
+                    ignore: protyle.disabled,
                     label: `<div class="fn__flex" style="margin-bottom: 4px"><span>${window.siyuan.languages.md2}</span><span class="fn__space fn__flex-1"></span>
 <input type="checkbox" class="b3-switch fn__flex-center"${ligatures === "true" ? " checked" : ((window.siyuan.config.editor.codeLigatures && ligatures !== "false") ? " checked" : "")}></div>`,
                     bind(element) {
@@ -1591,6 +1594,7 @@ export class Gutter {
                 }, {
                     id: "md27",
                     iconHTML: "",
+                    ignore: protyle.disabled,
                     label: `<div class="fn__flex" style="margin-bottom: 4px"><span>${window.siyuan.languages.md27}</span><span class="fn__space fn__flex-1"></span>
 <input type="checkbox" class="b3-switch fn__flex-center"${linenumber === "true" ? " checked" : ((window.siyuan.config.editor.codeSyntaxHighlightLineNum && linenumber !== "false") ? " checked" : "")}></div>`,
                     bind(element) {
@@ -1607,6 +1611,17 @@ export class Gutter {
                                 attrs: {linenumber: inputElement.checked.toString()}
                             });
                             window.siyuan.menus.menu.remove();
+                        });
+                    }
+                }, {
+                    id: "saveCodeBlockAsFile",
+                    iconHTML: "",
+                    label: window.siyuan.languages.saveCodeBlockAsFile,
+                    click() {
+                        const msgId = showMessage(window.siyuan.languages.exporting, -1);
+                        fetchPost("/api/export/exportCodeBlock", {id}, (response) => {
+                            hideMessage(msgId);
+                            openByMobile(response.data.path);
                         });
                     }
                 }]
@@ -1864,9 +1879,9 @@ export class Gutter {
                         removeFoldAttr: nodeElement.getAttribute("fold") !== "1"
                     }, (response) => {
                         if (isInAndroid()) {
-                            window.JSAndroid.writeHTMLClipboard(protyle.lute.BlockDOM2StdMd(response.data).trimEnd(), response.data + Constants.ZWSP);
+                            window.JSAndroid.writeSiYuanHTMLClipboard(protyle.lute.BlockDOM2StdMd(response.data).trimEnd(), protyle.lute.BlockDOM2HTML(response.data).trimEnd(), response.data + Constants.ZWSP);
                         } else if (isInHarmony()) {
-                            window.JSHarmony.writeHTMLClipboard(protyle.lute.BlockDOM2StdMd(response.data).trimEnd(), response.data + Constants.ZWSP);
+                            window.JSHarmony.writeSiYuanHTMLClipboard(protyle.lute.BlockDOM2StdMd(response.data).trimEnd(), protyle.lute.BlockDOM2HTML(response.data).trimEnd(), response.data + Constants.ZWSP);
                         } else {
                             writeText(response.data + Constants.ZWSP);
                         }
@@ -2575,19 +2590,20 @@ export class Gutter {
                     }
                     listItem = topElement.querySelector(".li") || topElement.querySelector(".list");
                     // 嵌入块中有列表时块标显示位置错误 https://github.com/siyuan-note/siyuan/issues/6254
-                    if (isInEmbedBlock(listItem) || isInAVBlock(listItem)) {
+                    if (isInEmbedBlock(listItem) || isInAVBlock(listItem) || hasClosestByClassName(nodeElement, "callout")) {
                         listItem = undefined;
                     }
-                    // 标题必须显示
-                    if (topElement !== nodeElement && type !== "NodeHeading" && !topElement.classList.contains("callout")) {
+                    // 标题（除列表下的）、提示下的块必须显示
+                    if (topElement !== nodeElement && type !== "NodeHeading" && !hasClosestByClassName(nodeElement, "callout")) {
                         nodeElement = topElement;
                         parentElement = hasClosestBlock(nodeElement.parentElement);
                         type = nodeElement.getAttribute("data-type");
                         dataNodeId = nodeElement.getAttribute("data-node-id");
                     }
                 }
-                if (type === "NodeListItem" && index === 1) {
-                    // 列表项中第一层不显示
+                // - > # 1 \n  > 2
+                if (type === "NodeListItem" && index > 0) {
+                    // 列表项内的块不显示块标
                     html = "";
                 }
                 index += 1;
@@ -2676,9 +2692,7 @@ data-type="fold" style="cursor:inherit;"><svg style="width: 10px${fold && fold =
         const contentTop = protyle.contentElement.getBoundingClientRect().top;
         let rect = element.getBoundingClientRect();
         let marginHeight = 0;
-        if (listItem && !window.siyuan.config.editor.rtl && getComputedStyle(element).direction !== "rtl" &&
-            // 提示下有列表
-            !element.classList.contains("callout")) {
+        if (listItem && !window.siyuan.config.editor.rtl && getComputedStyle(element).direction !== "rtl") {
             rect = listItem.firstElementChild.getBoundingClientRect();
             space = 0;
         } else if (nodeElement.getAttribute("data-type") === "NodeBlockQueryEmbed") {

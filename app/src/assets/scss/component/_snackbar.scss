@@ -61,7 +61,7 @@
     box-sizing: border-box;
     box-shadow: var(--b3-tooltips-shadow, 0 2px 12px rgba(0, 0, 0, 0.3)) !important;
     word-break: break-word;
-    max-width: 20vw;
+    max-width: min(calc(100vw - 60px), 360px);
     text-align: left;
     display: inline-block;
 

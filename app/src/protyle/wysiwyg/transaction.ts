@@ -682,6 +682,17 @@ export const onTransaction = (protyle: IProtyle, operation: IOperation, isUndo: 
             });
         }
         /// #endif
+        // 折叠标题移动到横向超级块的第一个块上后撤销
+        if (updateElements.length === 0) {
+            const tempEl = document.createElement("div");
+            tempEl.setAttribute("data-node-id", operation.id);
+            updateElements.push(tempEl);
+            fetchPost("/api/block/getBlockDOM", {
+                id: operation.id,
+            }, (response) => {
+                document.querySelector(`[data-node-id="${operation.id}"]`).outerHTML = response.data.dom;
+            });
+        }
         let range;
         if (isUndo && getSelection().rangeCount > 0) {
             range = getSelection().getRangeAt(0);
@@ -690,7 +701,7 @@ export const onTransaction = (protyle: IProtyle, operation: IOperation, isUndo: 
                 if (getContenteditableElement(rangeBlockElement)) {
                     range.insertNode(document.createElement("wbr"));
                 } else {
-                    getContenteditableElement(updateElements[0]).insertAdjacentHTML("afterbegin", "<wbr>");
+                    getContenteditableElement(updateElements[0])?.insertAdjacentHTML("afterbegin", "<wbr>");
                 }
             }
         }
@@ -938,7 +949,8 @@ export const turnsIntoOneTransaction = async (options: {
     selectsElement: Element[],
     type: TTurnIntoOne,
     level?: TTurnIntoOneSub,
-    unfocus?: boolean
+    unfocus?: boolean,
+    getOperations?: boolean,
 }) => {
     let parentElement: Element;
     const id = Lute.NewNodeID();
@@ -1053,6 +1065,12 @@ export const turnsIntoOneTransaction = async (options: {
         doOperations.push(...cancelOperations.doOperations);
         undoOperations.splice(0, 0, ...cancelOperations.undoOperations);
     }
+    if (options.getOperations) {
+        return {
+            doOperations,
+            undoOperations,
+        };
+    }
     transaction(options.protyle, doOperations, undoOperations);
     if (!options.unfocus) {
         focusBlock(options.protyle.wysiwyg.element.querySelector(`[data-node-id="${options.selectsElement[0].getAttribute("data-node-id")}"]`));
@@ -1064,7 +1082,7 @@ const removeUnfoldRepeatBlock = (html: string, protyle: IProtyle) => {
     const temp = document.createElement("template");
     temp.innerHTML = html;
     Array.from(temp.content.children).forEach(item => {
-        protyle.wysiwyg.element.querySelector(`:scope > [data-node-id="${item.getAttribute("data-node-id")}"]`)?.remove();
+        protyle.wysiwyg.element.querySelector(`[data-node-id="${item.getAttribute("data-node-id")}"]`)?.remove();
     });
 };
 
@@ -1128,9 +1146,8 @@ export const turnsIntoTransaction = (options: {
         const id = item.getAttribute("data-node-id");
 
         const tempElement = document.createElement("template");
-        if (!options.isContinue) {
+        if (!options.isContinue || options.level) {
             let newHTML: string;
-
             if (options.type === "BlockMath2InlineMath") {
                 newHTML = convertBlockMathToInlineMath(item.outerHTML);
             } else if (options.type === "InlineMath2BlockMath") {

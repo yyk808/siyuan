@@ -777,7 +777,7 @@ export class Toolbar {
                             currentNode.textContent = currentNode.textContent.substring(1);
                         }
                         if (previousElement.textContent.endsWith(Constants.ZWSP)) {
-                            previousElement.textContent = previousElement.textContent.substring(0, previousElement.textContent.length - 2);
+                            previousElement.textContent = previousElement.textContent.substring(0, previousElement.textContent.length - 1);
                         }
                     } else {
                         const previousType = previousElement ? (previousElement.getAttribute("data-type") || "").split(" ") : [];
@@ -860,7 +860,7 @@ export class Toolbar {
         if (!nodeElement) {
             return;
         }
-        hideElements(["hint"], protyle);
+        hideElements(["hint", "select"], protyle);
         window.siyuan.menus.menu.remove();
         const id = nodeElement.getAttribute("data-node-id");
         const types = (renderElement.getAttribute("data-type") || "").split(" ");
@@ -1105,6 +1105,17 @@ export class Toolbar {
         this.subElementCloseCB = () => {
             if (!renderElement.parentElement || protyle.disabled ||
                 (oldTextValue === textElement.value && textElement.value)) {
+                if (renderElement.tagName === "SPAN") {
+                    if (renderElement.parentElement) {
+                        this.range.setStartAfter(renderElement);
+                        this.range.collapse(true);
+                        focusByRange(this.range);
+                    }
+                } else {
+                    focusBlock(renderElement);
+                    renderElement.classList.add("protyle-wysiwyg--select");
+                }
+                protyle.wysiwyg.element.focus({ preventScroll: true});
                 return;
             }
             let inlineLastNode: Element;
@@ -1210,6 +1221,7 @@ export class Toolbar {
                 }
             }
             updateTransaction(protyle, id, nodeElement.outerHTML, html);
+            protyle.wysiwyg.element.focus({ preventScroll: true});
         };
         this.subElement.style.zIndex = (++window.siyuan.zIndex).toString();
         this.subElement.classList.remove("fn__none");

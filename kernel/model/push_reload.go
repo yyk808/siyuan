@@ -31,12 +31,17 @@ import (
 	"github.com/emirpasic/gods/sets/hashset"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/av"
+	"github.com/siyuan-note/siyuan/kernel/conf"
 	"github.com/siyuan-note/siyuan/kernel/filesys"
 	"github.com/siyuan-note/siyuan/kernel/sql"
 	"github.com/siyuan-note/siyuan/kernel/task"
 	"github.com/siyuan-note/siyuan/kernel/treenode"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
+
+func PushReloadSnippet(snippet *conf.Snpt) {
+	util.BroadcastByType("main", "setSnippet", 0, "", snippet)
+}
 
 func PushReloadPlugin(upsertCodePluginSet, upsertDataPluginSet, unloadPluginNameSet, uninstallPluginNameSet *hashset.Set, excludeApp string) {
 	// 集合去重
@@ -133,10 +138,17 @@ func refreshDocInfoWithSize(tree *parse.Tree, size uint64) {
 	}
 
 	refreshDocInfo0(tree, size)
-	refreshParentDocInfo(tree)
+	go func() {
+		time.Sleep(128 * time.Millisecond)
+		refreshParentDocInfo(tree)
+	}()
 }
 
 func refreshParentDocInfo(tree *parse.Tree) {
+	if nil == tree {
+		return
+	}
+
 	parentTree := loadParentTree(tree)
 	if nil == parentTree {
 		return
@@ -276,14 +288,25 @@ func refreshDynamicRefText(updatedDefNode *ast.Node, updatedTree *parse.Tree) {
 
 // refreshDynamicRefTexts 用于批量刷新块引用的动态锚文本。
 // 该实现依赖了数据库缓存，导致外部调用时可能需要阻塞等待数据库写入后才能获取到 refs
-func refreshDynamicRefTexts(updatedDefNodes map[string]*ast.Node, updatedTrees map[string]*parse.Tree) {
+func refreshDynamicRefTexts(updatedDefNodes map[string]*ast.Node, updatedTrees map[string]*parse.Tree) (changedRootIDs []string) {
+	for t := range updatedTrees {
+		changedRootIDs = append(changedRootIDs, t)
+	}
+
 	for i := 0; i < 7; i++ {
 		updatedRefNodes, updatedRefTrees := refreshDynamicRefTexts0(updatedDefNodes, updatedTrees)
 		if 1 > len(updatedRefNodes) {
 			break
 		}
 		updatedDefNodes, updatedTrees = updatedRefNodes, updatedRefTrees
+
+		for t := range updatedTrees {
+			changedRootIDs = append(changedRootIDs, t)
+		}
 	}
+
+	changedRootIDs = gulu.Str.RemoveDuplicatedElem(changedRootIDs)
+	return
 }
 
 func refreshDynamicRefTexts0(updatedDefNodes map[string]*ast.Node, updatedTrees map[string]*parse.Tree) (updatedRefNodes map[string]*ast.Node, updatedRefTrees map[string]*parse.Tree) {

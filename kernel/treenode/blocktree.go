@@ -79,16 +79,21 @@ func initDatabase(forceRebuild bool) (err error) {
 func initDBTables() {
 	_, err := db.Exec("DROP TABLE IF EXISTS blocktrees")
 	if err != nil {
-		logging.LogFatalf(logging.ExitCodeReadOnlyDatabase, "drop table [blocks] failed: %s", err)
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "drop table [blocks] failed: %s", err)
 	}
 	_, err = db.Exec("CREATE TABLE blocktrees (id, root_id, parent_id, box_id, path, hpath, updated, type)")
 	if err != nil {
-		logging.LogFatalf(logging.ExitCodeReadOnlyDatabase, "create table [blocktrees] failed: %s", err)
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create table [blocktrees] failed: %s", err)
 	}
 
 	_, err = db.Exec("CREATE INDEX idx_blocktrees_id ON blocktrees(id)")
 	if err != nil {
-		logging.LogFatalf(logging.ExitCodeReadOnlyDatabase, "create index [idx_blocktrees_id] failed: %s", err)
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_blocktrees_id] failed: %s", err)
+	}
+
+	_, err = db.Exec("CREATE INDEX idx_blocktrees_root_id ON blocktrees(root_id)")
+	if err != nil {
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create index [idx_blocktrees_root_id] failed: %s", err)
 	}
 }
 
@@ -111,7 +116,7 @@ func initDBConnection() {
 	var err error
 	db, err = sql.Open("sqlite3_extended", dsn)
 	if err != nil {
-		logging.LogFatalf(logging.ExitCodeReadOnlyDatabase, "create database failed: %s", err)
+		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create database failed: %s", err)
 	}
 	db.SetMaxIdleConns(7)
 	db.SetMaxOpenConns(7)
@@ -131,7 +136,8 @@ func closeDatabase() {
 		logging.LogErrorf("close database failed: %s", err)
 	}
 	debug.FreeOSMemory()
-	runtime.GC() // 没有这句的话文件句柄不会释放，后面就无法删除文件
+	db = nil
+	runtime.GC()
 	return
 }
 
@@ -654,7 +660,7 @@ func InitBlockTree(force bool) {
 	err := initDatabase(force)
 	if err != nil {
 		logging.LogErrorf("init database failed: %s", err)
-		os.Exit(logging.ExitCodeReadOnlyDatabase)
+		os.Exit(logging.ExitCodeUnavailableDatabase)
 		return
 	}
 	return

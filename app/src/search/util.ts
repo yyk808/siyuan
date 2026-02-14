@@ -747,6 +747,8 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
                     element.querySelector("#searchSyntaxCheck").outerHTML = genQueryHTML(config.method, "searchSyntaxCheck");
                     config.page = 1;
                     inputEvent(element, config, edit, true);
+                    window.siyuan.storage[Constants.LOCAL_SEARCHDATA] = JSON.parse(JSON.stringify(config));
+                    setStorageVal(Constants.LOCAL_SEARCHDATA, window.siyuan.storage[Constants.LOCAL_SEARCHDATA]);
                 });
                 const rect = target.getBoundingClientRect();
                 window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, isLeft: true});
@@ -893,7 +895,7 @@ export const genSearch = (app: App, config: Config.IUILayoutTabSearchConfig, ele
     searchInputElement.addEventListener("blur", () => {
         if (config.removed) {
             config.k = searchInputElement.value;
-            window.siyuan.storage[Constants.LOCAL_SEARCHDATA] = Object.assign({}, config);
+            window.siyuan.storage[Constants.LOCAL_SEARCHDATA] = JSON.parse(JSON.stringify(config));
             setStorageVal(Constants.LOCAL_SEARCHDATA, window.siyuan.storage[Constants.LOCAL_SEARCHDATA]);
         }
         saveKeyList("keys", searchInputElement.value);
@@ -931,6 +933,9 @@ export const openSearchEditor = (options: {
 }) => {
     let currentRange = (options.rootId === options.protyle.block.rootID && options.id === options.protyle.block.id) ?
         options.protyle.highlight.ranges[options.protyle.highlight.rangeIndex] : null;
+    if (options.protyle.block.scroll) {
+        currentRange = null;
+    }
     if (currentRange) {
         const rangeBlockElement = hasClosestBlock(currentRange.startContainer);
         if (rangeBlockElement) {
@@ -1143,9 +1148,6 @@ export const getArticle = (options: {
             if (articleId !== options.id) {
                 return;
             }
-            if (options.edit.protyle.options.render.title) {
-                options.edit.protyle.title.render(options.edit.protyle, response);
-            }
             fetchPost("/api/filetree/getDoc", {
                 id: options.id,
                 query: options.value || null,
@@ -1164,48 +1166,57 @@ export const getArticle = (options: {
                     method: options.config?.method || null,
                     types: options.config?.types || null,
                 };
+                // https://ld246.com/article/1770132984152
+                if (options.edit.protyle.options.render.title) {
+                    options.edit.protyle.wysiwyg.renderCustom(response.data.ial);
+                }
                 onGet({
                     updateReadonly: true,
                     data: getResponse,
                     protyle: options.edit.protyle,
                     action: zoomIn ? [Constants.CB_GET_ALL, Constants.CB_GET_HTML] : [Constants.CB_GET_HTML],
-                });
-
-                const contentRect = options.edit.protyle.contentElement.getBoundingClientRect();
-                if (isSupportCSSHL()) {
-                    let observer: ResizeObserver;
-                    searchMarkRender(options.edit.protyle, getResponse.data.keywords, options.id, () => {
-                        const highlightKeys = () => {
-                            const currentRange = options.edit.protyle.highlight.ranges[options.edit.protyle.highlight.rangeIndex];
-                            if (options.edit.protyle.highlight.ranges.length > 0 && currentRange) {
-                                if (!currentRange.toString()) {
-                                    highlightById(options.edit.protyle, options.id, "center");
-                                } else {
-                                    scrollToCurrent(options.edit.protyle.contentElement, currentRange, contentRect);
+                    afterCB() {
+                        const contentRect = options.edit.protyle.contentElement.getBoundingClientRect();
+                        if (isSupportCSSHL()) {
+                            let observer: ResizeObserver;
+                            searchMarkRender(options.edit.protyle, getResponse.data.keywords, options.id, () => {
+                                const highlightKeys = () => {
+                                    const currentRange = options.edit.protyle.highlight.ranges[options.edit.protyle.highlight.rangeIndex];
+                                    if (options.edit.protyle.highlight.ranges.length > 0 && currentRange) {
+                                        if (!currentRange.toString()) {
+                                            highlightById(options.edit.protyle, options.id, "center");
+                                        } else {
+                                            scrollToCurrent(options.edit.protyle.contentElement, currentRange, contentRect);
+                                        }
+                                    } else {
+                                        highlightById(options.edit.protyle, options.id, "center");
+                                    }
+                                };
+                                if (observer) {
+                                    observer.disconnect();
                                 }
-                            } else {
-                                highlightById(options.edit.protyle, options.id, "center");
+                                highlightKeys();
+                                observer = new ResizeObserver(() => {
+                                    highlightKeys();
+                                });
+                                observer.observe(options.edit.protyle.wysiwyg.element);
+                                setTimeout(() => {
+                                    observer.disconnect();
+                                }, Constants.TIMEOUT_COUNT);
+                            });
+                        } else {
+                            const matchElements = options.edit.protyle.wysiwyg.element.querySelectorAll('span[data-type~="search-mark"]');
+                            if (matchElements.length === 0) {
+                                return;
                             }
-                        };
-                        if (observer) {
-                            observer.disconnect();
+                            matchElements[0].classList.add("search-mark--hl");
+                            options.edit.protyle.contentElement.scrollTop = options.edit.protyle.contentElement.scrollTop + matchElements[0].getBoundingClientRect().top - contentRect.top - contentRect.height / 2;
                         }
-                        highlightKeys();
-                        observer = new ResizeObserver(() => {
-                            highlightKeys();
-                        });
-                        observer.observe(options.edit.protyle.wysiwyg.element);
-                        setTimeout(() => {
-                            observer.disconnect();
-                        }, Constants.TIMEOUT_COUNT);
-                    });
-                } else {
-                    const matchElements = options.edit.protyle.wysiwyg.element.querySelectorAll('span[data-type~="search-mark"]');
-                    if (matchElements.length === 0) {
-                        return;
                     }
-                    matchElements[0].classList.add("search-mark--hl");
-                    options.edit.protyle.contentElement.scrollTop = options.edit.protyle.contentElement.scrollTop + matchElements[0].getBoundingClientRect().top - contentRect.top - contentRect.height / 2;
+                });
+                // 只能放在 onGet 后，否则 title 不会更新 https://github.com/siyuan-note/siyuan/issues/16739
+                if (options.edit.protyle.options.render.title) {
+                    options.edit.protyle.title.render(options.edit.protyle, response);
                 }
             });
         });

@@ -297,23 +297,23 @@ func removeIndexes(removeFilePaths []string) (removeRootIDs []string) {
 			continue
 		}
 
-		id := util.GetTreeID(removeFile)
-		removeRootIDs = append(removeRootIDs, id)
-		block := treenode.GetBlockTree(id)
-		if nil != block {
-			msg := fmt.Sprintf(Conf.Language(39), block.RootID)
-			util.IncBootProgress(bootProgressPart, msg)
-			util.PushStatusBar(msg)
+		rootID := util.GetTreeID(removeFile)
+		removeRootIDs = append(removeRootIDs, rootID)
 
-			bts := treenode.GetBlockTreesByRootID(block.RootID)
-			for _, b := range bts {
-				cache.RemoveBlockIAL(b.ID)
-			}
-			cache.RemoveDocIAL(block.Path)
+		msg := fmt.Sprintf(Conf.Language(39), rootID)
+		util.IncBootProgress(bootProgressPart, msg)
+		util.PushStatusBar(msg)
 
-			treenode.RemoveBlockTreesByRootID(block.RootID)
-			sql.RemoveTreeQueue(block.RootID)
+		cache.RemoveTreeData(rootID)
+		sql.RemoveTreeQueue(rootID)
+		bts := treenode.GetBlockTreesByRootID(rootID)
+		for _, b := range bts {
+			cache.RemoveBlockIAL(b.ID)
 		}
+		if block := treenode.GetBlockTree(rootID); nil != block {
+			cache.RemoveDocIAL(block.Path)
+		}
+		treenode.RemoveBlockTreesByRootID(rootID)
 	}
 
 	if 1 > len(removeRootIDs) {
@@ -346,6 +346,8 @@ func upsertIndexes(upsertFilePaths []string) (upsertRootIDs []string) {
 		util.IncBootProgress(bootProgressPart, msg)
 		util.PushStatusBar(msg)
 
+		rootID := util.GetTreeID(p)
+		cache.RemoveTreeData(rootID)
 		tree, err0 := filesys.LoadTree(box, p, luteEngine)
 		if nil != err0 {
 			continue
@@ -353,13 +355,13 @@ func upsertIndexes(upsertFilePaths []string) (upsertRootIDs []string) {
 		treenode.UpsertBlockTree(tree)
 		sql.UpsertTreeQueue(tree)
 
-		bts := treenode.GetBlockTreesByRootID(tree.ID)
+		bts := treenode.GetBlockTreesByRootID(rootID)
 		for _, b := range bts {
 			cache.RemoveBlockIAL(b.ID)
 		}
 		cache.RemoveDocIAL(tree.Path)
 
-		upsertRootIDs = append(upsertRootIDs, tree.Root.ID)
+		upsertRootIDs = append(upsertRootIDs, rootID)
 	}
 
 	if 1 > len(upsertRootIDs) {
@@ -655,6 +657,8 @@ func formatRepoErrorMsg(err error) string {
 		msg = Conf.language(249)
 	} else if errors.Is(err, cloud.ErrCloudTooManyRequests) {
 		msg = Conf.language(250)
+	} else if errors.Is(err, cloud.ErrDecryptFailed) {
+		msg = Conf.Language(135)
 	} else {
 		logging.LogErrorf("sync failed caused by network: %s", msg)
 		msgLowerCase := strings.ToLower(msg)

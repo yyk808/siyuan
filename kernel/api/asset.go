@@ -349,9 +349,7 @@ func getUnusedAssets(c *gin.Context) {
 		util.PushMsg(fmt.Sprintf(model.Conf.Language(251), total, maxUnusedAssets), 5000)
 	}
 
-	ret.Data = map[string]interface{}{
-		"unusedAssets": unusedAssets,
-	}
+	ret.Data = unusedAssets
 }
 
 func getMissingAssets(c *gin.Context) {
@@ -359,9 +357,7 @@ func getMissingAssets(c *gin.Context) {
 	defer c.JSON(http.StatusOK, ret)
 
 	missingAssets := model.MissingAssets()
-	ret.Data = map[string]interface{}{
-		"missingAssets": missingAssets,
-	}
+	ret.Data = missingAssets
 }
 
 func resolveAssetPath(c *gin.Context) {
@@ -394,8 +390,13 @@ func uploadCloud(c *gin.Context) {
 		return
 	}
 
+	ignorePushMsg := false
+	if nil != arg["ignorePushMsg"] {
+		ignorePushMsg = arg["ignorePushMsg"].(bool)
+	}
+
 	id := arg["id"].(string)
-	count, err := model.UploadAssets2Cloud(id)
+	count, err := model.UploadAssets2Cloud(id, ignorePushMsg)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
@@ -427,17 +428,17 @@ func uploadCloudByAssetsPaths(c *gin.Context) {
 		assets = append(assets, pathArg.(string))
 	}
 
-	count, err := model.UploadAssets2CloudByAssetsPaths(assets)
+	ignorePushMsg := false
+	if nil != arg["ignorePushMsg"] {
+		ignorePushMsg = arg["ignorePushMsg"].(bool)
+	}
+
+	count, err := model.UploadAssets2CloudByAssetsPaths(assets, ignorePushMsg)
 	if err != nil {
 		ret.Code = -1
 		ret.Msg = err.Error()
 		ret.Data = map[string]interface{}{"closeTimeout": 3000}
 		return
-	}
-
-	ignorePushMsg := false
-	if nil != arg["ignorePushMsg"] {
-		ignorePushMsg = arg["ignorePushMsg"].(bool)
 	}
 
 	if !ignorePushMsg {
