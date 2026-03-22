@@ -292,6 +292,12 @@ func InitConf() {
 	if 3650 < Conf.Editor.HistoryRetentionDays {
 		Conf.Editor.HistoryRetentionDays = 3650
 	}
+	if nil == Conf.Editor.FloatWindowDelay {
+		v := 620
+		Conf.Editor.FloatWindowDelay = &v
+	} else {
+		*Conf.Editor.FloatWindowDelay = max(0, min(2000, *Conf.Editor.FloatWindowDelay))
+	}
 	if conf.MinDynamicLoadBlocks > Conf.Editor.DynamicLoadBlocks {
 		Conf.Editor.DynamicLoadBlocks = conf.MinDynamicLoadBlocks
 	}
@@ -321,20 +327,6 @@ func InitConf() {
 		Conf.Export.PandocBin = util.PandocBinPath
 	}
 
-	docxTemplate := util.RemoveInvalid(Conf.Export.DocxTemplate)
-	if "" != docxTemplate {
-		params := util.RemoveInvalid(Conf.Export.PandocParams)
-		if gulu.File.IsExist(docxTemplate) && !strings.Contains(params, "--reference-doc") {
-			if !strings.HasPrefix(docxTemplate, "\"") {
-				docxTemplate = "\"" + docxTemplate + "\""
-			}
-			params += " --reference-doc " + docxTemplate
-			Conf.Export.PandocParams = strings.TrimSpace(params)
-		}
-		Conf.Export.DocxTemplate = ""
-		Conf.Save()
-	}
-
 	if nil == Conf.Graph || nil == Conf.Graph.Local || nil == Conf.Graph.Global {
 		Conf.Graph = conf.NewGraph()
 	}
@@ -345,10 +337,11 @@ func InitConf() {
 			Conf.OpenHelp = true
 		}
 	} else {
-		if 0 < semver.Compare("v"+util.Ver, "v"+Conf.System.KernelVersion) {
+		cmp := semver.Compare("v"+util.Ver, "v"+Conf.System.KernelVersion)
+		if 0 < cmp {
 			logging.LogInfof("upgraded from version [%s] to [%s]", Conf.System.KernelVersion, util.Ver)
 			Conf.ShowChangelog = true
-		} else if 0 > semver.Compare("v"+util.Ver, "v"+Conf.System.KernelVersion) {
+		} else if 0 > cmp {
 			logging.LogInfof("downgraded from version [%s] to [%s]", Conf.System.KernelVersion, util.Ver)
 		}
 
@@ -373,10 +366,6 @@ func InitConf() {
 		Conf.System.DisabledFeatures = []string{}
 	}
 
-	if nil == Conf.Snippet {
-		Conf.Snippet = conf.NewSnpt()
-	}
-
 	Conf.System.AppDir = util.WorkingDir
 	Conf.System.ConfDir = util.ConfDir
 	Conf.System.HomeDir = util.HomeDir
@@ -389,6 +378,24 @@ func InitConf() {
 	}
 	Conf.System.OS = runtime.GOOS
 	Conf.System.OSPlatform = util.GetOSPlatform()
+
+	docxTemplate := util.RemoveInvalid(Conf.Export.DocxTemplate)
+	if "" != docxTemplate {
+		params := util.RemoveInvalid(Conf.Export.PandocParams)
+		if gulu.File.IsExist(docxTemplate) && !strings.Contains(params, "--reference-doc") && !Conf.System.IsMicrosoftStore {
+			if !strings.HasPrefix(docxTemplate, "\"") {
+				docxTemplate = "\"" + docxTemplate + "\""
+			}
+			params += " --reference-doc " + docxTemplate
+			Conf.Export.PandocParams = strings.TrimSpace(params)
+		}
+		Conf.Export.DocxTemplate = ""
+		Conf.Save()
+	}
+
+	if nil == Conf.Snippet {
+		Conf.Snippet = conf.NewSnpt()
+	}
 
 	if "" != Conf.UserData {
 		Conf.SetUser(loadUserFromConf())
@@ -799,6 +806,7 @@ func Close(force, setCurrentWorkspace bool, execInstallPkg int) (exitCode int) {
 		}
 	}
 
+	util.BroadcastByType("main", "exit", 0, "", nil)
 	util.UnlockWorkspace()
 
 	time.Sleep(500 * time.Millisecond)
@@ -809,7 +817,9 @@ func Close(force, setCurrentWorkspace bool, execInstallPkg int) (exitCode int) {
 			time.Sleep(30 * time.Second)
 		}
 	}
+
 	closeSyncWebSocket()
+
 	go func() {
 		time.Sleep(500 * time.Millisecond)
 		logging.LogInfof("exited kernel")
@@ -1018,7 +1028,7 @@ func IsSubscriber() bool {
 
 func IsPaidUser() bool {
 	// 移除付费用户检查，所有用户都被视为付费用户
-	
+
 	// S3/WebDAV data sync and backup are available for a fee https://github.com/siyuan-note/siyuan/issues/8780
 
 	// All users are treated as paid users
@@ -1030,9 +1040,12 @@ const (
 	MaskedAccessAuthCode = "*******"
 )
 
+// GetMaskedConf 获取脱敏后的 Conf
 func GetMaskedConf() (ret *AppConf, err error) {
-	// 脱敏处理
-	data, err := gulu.JSON.MarshalIndentJSON(Conf, "", "  ")
+	// 序列化时持锁，避免与 loadThemes/LoadIcons 等写操作并发导致 slice 在编码过程中被改写而 panic https://github.com/siyuan-note/siyuan/issues/16978
+	Conf.m.Lock()
+	data, err := gulu.JSON.MarshalJSON(Conf)
+	Conf.m.Unlock()
 	if err != nil {
 		logging.LogErrorf("marshal conf failed: %s", err)
 		return
@@ -1243,17 +1256,21 @@ func closeUserGuide() {
 		}
 
 		msgId := util.PushMsg(Conf.language(233), 30000)
-		evt := util.NewCmdResult("unmount", 0, util.PushModeBroadcast)
-		evt.Data = map[string]interface{}{
-			"box": boxID,
-		}
-		util.PushEvent(evt)
 
 		unindex(boxID)
 
 		sql.FlushQueue()
-		if removeErr := filelock.Remove(boxDirPath); nil != removeErr {
-			logging.LogErrorf("remove corrupted user guide box [%s] failed: %s", boxDirPath, removeErr)
+
+		if removeErr := RemoveBox(boxID); nil == removeErr {
+			evt := util.NewCmdResult("removeBox", 0, util.PushModeBroadcast)
+			evt.Data = map[string]interface{}{
+				"box": boxID,
+			}
+			util.PushEvent(evt)
+		} else {
+			logging.LogErrorf("close user guide box [%s] failed: %s", boxID, removeErr)
+			util.PushClearMsg(msgId)
+			continue
 		}
 
 		util.PushClearMsg(msgId)
@@ -1271,7 +1288,7 @@ func subscribeConfEvents() {
 		Conf.Export.PandocBin = util.PandocBinPath
 
 		params := util.RemoveInvalid(Conf.Export.PandocParams)
-		if !strings.Contains(params, "--reference-doc") && "" != util.PandocTemplatePath {
+		if !strings.Contains(params, "--reference-doc") && "" != util.PandocTemplatePath && !Conf.System.IsMicrosoftStore {
 			params += " --reference-doc"
 			params += " \"" + util.PandocTemplatePath + "\""
 			Conf.Export.PandocParams = strings.TrimSpace(params)

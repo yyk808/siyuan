@@ -1,6 +1,6 @@
 import {setEditMode} from "../util/setEditMode";
 import {scrollEvent} from "../scroll/event";
-import {isMobile, isTouchDevice} from "../../util/functions";
+import {isMobile} from "../../util/functions";
 import {Constants} from "../../constants";
 import {isMac} from "../util/compatibility";
 import {setInlineStyle} from "../../util/assets";
@@ -22,6 +22,7 @@ import {
     hasClosestByTag,
     isInEmbedBlock
 } from "../util/hasClosest";
+import {hideElements} from "./hideElements";
 
 export const initUI = (protyle: IProtyle) => {
     protyle.contentElement = document.createElement("div");
@@ -121,6 +122,7 @@ export const initUI = (protyle: IProtyle) => {
         }, Constants.TIMEOUT_LOAD);
     }, {passive: true});
     protyle.contentElement.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
+        hideElements(["hint", "util"], protyle);
         // wysiwyg 元素下方点击无效果 https://github.com/siyuan-note/siyuan/issues/12009
         if (protyle.disabled ||
             // 选中块时，禁止添加空块 https://github.com/siyuan-note/siyuan/issues/13905
@@ -182,8 +184,8 @@ export const initUI = (protyle: IProtyle) => {
         }
     });
     let overAttr = false;
-    const isTouch = isTouchDevice();
-    protyle.element.addEventListener(isTouch ? "touchend" : "mouseover", (event: KeyboardEvent & {
+    /// #if !MOBILE
+    protyle.element.addEventListener("mouseover", (event: KeyboardEvent & {
         target: HTMLElement
     }) => {
         // attr
@@ -221,7 +223,7 @@ export const initUI = (protyle: IProtyle) => {
 
         // gutter
         const buttonElement = hasClosestByTag(event.target, "BUTTON");
-        if (!isTouch && buttonElement && buttonElement.parentElement.classList.contains("protyle-gutters")) {
+        if (buttonElement && buttonElement.parentElement.classList.contains("protyle-gutters")) {
             const type = buttonElement.getAttribute("data-type");
             if (type === "fold" || type === "NodeAttributeViewRow") {
                 Array.from(protyle.wysiwyg.element.querySelectorAll(".protyle-wysiwyg--hl, .av__row--hl")).forEach(item => {
@@ -254,7 +256,6 @@ export const initUI = (protyle: IProtyle) => {
         }
 
         // 面包屑
-        /// #if !MOBILE
         if (protyle.selectElement.classList.contains("fn__none")) {
             const svgElement = hasClosestByAttribute(event.target, "data-node-id", null);
             if (svgElement && svgElement.parentElement.classList.contains("protyle-breadcrumb__bar")) {
@@ -267,8 +268,8 @@ export const initUI = (protyle: IProtyle) => {
                 }
             }
         }
-        /// #endif
     });
+    /// #endif
 };
 
 export const addLoading = (protyle: IProtyle, msg?: string) => {

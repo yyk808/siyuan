@@ -15,12 +15,7 @@ import {bootSync} from "../dialog/processSystem";
 import {initMessage, showMessage} from "../dialog/message";
 import {goBack} from "./util/MobileBackFoward";
 import {activeBlur, hideKeyboardToolbar, showKeyboardToolbar} from "./util/keyboardToolbar";
-import {
-    getLocalStorage,
-    isChromeBrowser,
-    isInMobileApp,
-    writeText
-} from "../protyle/util/compatibility";
+import {getLocalStorage, isChromeBrowser, isInMobileApp, writeText} from "../protyle/util/compatibility";
 import {getCurrentEditor, openMobileFileById} from "./editor";
 import {getSearch} from "../util/functions";
 import {checkPublishServiceClosed} from "../util/processMessage";
@@ -37,7 +32,7 @@ import {correctHotkey} from "../boot/globalEvent/commonHotkey";
 import {processIOSPurchaseResponse} from "../util/iOSPurchase";
 import {updateControlAlt} from "../protyle/util/hotKey";
 import {nbsp2space} from "../protyle/util/normalizeText";
-import {callMobileAppShowKeyboard, canInput} from "./util/mobileAppUtil";
+import {callMobileAppShowKeyboard, canInput, setWebViewFocusable} from "./util/mobileAppUtil";
 
 class App {
     public plugins: import("../plugin").Plugin[] = [];
@@ -150,6 +145,13 @@ class App {
                     loadAssets(confResponse.data.conf.appearance);
                     initMessage();
                     initAssets();
+                    if (!isInMobileApp()) {
+                        if (isChromeBrowser()) {
+                            document.querySelector('meta[name="viewport"]').setAttribute("content", "width=device-width, height=device-height, interactive-widget=resizes-content, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover");
+                        } else if (!window.siyuan.config.readonly && !window.siyuan.isPublish) {
+                            showMessage(window.siyuan.languages.useChrome, 0, "error");
+                        }
+                    }
                     fetchPost("/api/setting/getCloudUser", {}, userResponse => {
                         window.siyuan.user = userResponse.data;
                         fetchPost("/api/system/getEmojiConf", {}, emojiResponse => {
@@ -173,6 +175,9 @@ class App {
                 window.siyuan.shiftIsPressed = false;
                 window.siyuan.altIsPressed = false;
             });
+            window.addEventListener("blur", () => {
+                setWebViewFocusable();
+            });
             // 移动端删除键 https://github.com/siyuan-note/siyuan/issues/9259
             window.addEventListener("keydown", (event) => {
                 mobileKeydown(siyuanApp, event);
@@ -193,13 +198,6 @@ class App {
                     }
                 }
             });
-            if (!isInMobileApp()) {
-                if (isChromeBrowser()) {
-                    document.querySelector('meta[name="viewport"]').setAttribute("content", "width=device-width, height=device-height, interactive-widget=resizes-content, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover");
-                } else if (!window.siyuan.config.readonly && !window.siyuan.isPublish) {
-                    showMessage(window.siyuan.languages.useChrome, 0, "error");
-                }
-            }
         });
     }
 }

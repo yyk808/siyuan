@@ -61,7 +61,8 @@ export class Backlink extends Model {
                                 this.parent.updateTitle(data.data.title);
                             }
                             break;
-                        case "unmount":
+                        case "closeBox":
+                        case "removeBox":
                             if (this.notebookId === data.data.box && this.type === "local") {
                                 this.parent.parent.removeTab(this.parent.id);
                             }
@@ -79,7 +80,7 @@ export class Backlink extends Model {
         this.rootId = options.rootId;
         this.type = options.type;
         this.element = options.tab.panelElement;
-        this.element.classList.add("fn__flex-column", "file-tree", "sy__backlink");
+        this.element.classList.add("fn__flex-column", "file-tree", "sy__backlink", "dockPanel");
         const backlinkSort = window.siyuan.config.editor.backlinkSort;
         const backmentionSort = window.siyuan.config.editor.backmentionSort;
         this.element.innerHTML = `<div class="block__icons">

@@ -100,6 +100,8 @@
       outline: none;
       white-space: nowrap;
       overflow: auto;
+      padding-right: 0;
+      font-size: 1em;
 
       &::-webkit-scrollbar {
         display: none;
@@ -707,6 +709,13 @@
 
       &:last-child {
         margin-right: 0;
+      }
+
+      svg {
+        height: 1.625em;
+        width: 1em;
+        vertical-align: bottom;
+        color: var(--b3-theme-on-surface-light);
       }
     }
 

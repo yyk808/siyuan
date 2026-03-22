@@ -70,7 +70,7 @@ import {copyPlainText, encodeBase64, isInIOS, isMac, isOnlyMeta, readClipboard} 
 import {MenuItem} from "../../menus/Menu";
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {onGet} from "../util/onGet";
-import {clearTableCell, isIncludeCell, setTableAlign} from "../util/table";
+import {clearTableCell, isIncludeCell, setTableAlign, updateTableTitle} from "../util/table";
 import {countBlockWord, countSelectWord} from "../../layout/status";
 import {showMessage} from "../../dialog/message";
 import {getBacklinkHeadingMore, loadBreadcrumb} from "./renderBacklink";
@@ -101,6 +101,7 @@ import {hideTooltip} from "../../dialog/tooltip";
 import {openGalleryItemMenu} from "../render/av/gallery/util";
 import {clearSelect} from "../util/clear";
 import {chartRender} from "../render/chartRender";
+import {reloadProtyle} from "../util/reload";
 import {updateCalloutType} from "./callout";
 import {nbsp2space, removeZWJ} from "../util/normalizeText";
 
@@ -1510,7 +1511,7 @@ export class WYSIWYG {
                                         // 合并背景色不会修改，需要等计算完毕
                                         setTimeout(() => {
                                             if (tableBlockElement) {
-                                                selectCellElements[0].innerHTML = html + "<wbr>";
+                                                selectCellElements[0].innerHTML = (html.replace(/<br>$/, "") || "<br>") + "<wbr>";
                                                 selectCellElements[0].colSpan = colSpan;
                                                 selectCellElements[0].rowSpan = rowSpan;
                                                 focusByWbr(selectCellElements[0], document.createRange());
@@ -1751,11 +1752,10 @@ export class WYSIWYG {
                     }
                     if (selectElement.length > 0) {
                         range.collapse(true);
-                        if (range.commonAncestorContainer.nodeType === 1 &&
-                            range.startContainer.childNodes[range.startOffset] &&
-                            range.startContainer.childNodes[range.startOffset].nodeType === 1 &&
-                            (range.commonAncestorContainer as HTMLElement).classList.contains("protyle-wysiwyg")) {
-                            focusBlock(range.startContainer.childNodes[range.startOffset] as Element);
+                        // https://github.com/siyuan-note/siyuan/issues/17092 & https://github.com/siyuan-note/siyuan/issues/15296
+                        const endElement = hasClosestBlock(mouseUpEvent.target as HTMLElement);
+                        if (endElement && document.activeElement.classList.contains("protyle-wysiwyg")) {
+                            focusBlock(endElement);
                         }
                         return;
                     }
@@ -2388,7 +2388,7 @@ export class WYSIWYG {
 
         this.element.addEventListener("paste", (event: ClipboardEvent & { target: HTMLElement }) => {
             // https://github.com/siyuan-note/siyuan/issues/11241
-            if (event.target.getAttribute("data-type") === "av-search") {
+            if (hasClosestByAttribute(event.target, "data-type", "av-search")) {
                 return;
             }
             if (protyle.disabled) {
@@ -2617,7 +2617,6 @@ export class WYSIWYG {
                     event
                 });
             });
-            hideElements(["hint", "util"], protyle);
             const ctrlIsPressed = isOnlyMeta(event);
             const backlinkBreadcrumbItemElement = hasClosestByClassName(event.target, "protyle-breadcrumb__item");
             if (backlinkBreadcrumbItemElement) {
@@ -2663,6 +2662,12 @@ export class WYSIWYG {
                     event.stopPropagation();
                 }
             });
+            if (tableElement) {
+                if (hasClosestByTag(event.target, "CAPTION")) {
+                    updateTableTitle(protyle, tableElement);
+                    return;
+                }
+            }
             // 面包屑定位，需至于前，否则 return 的元素就无法进行面包屑定位
             if (protyle.options.render.breadcrumb) {
                 protyle.breadcrumb.render(protyle, false, hasClosestBlock(event.target));
@@ -2847,6 +2852,36 @@ export class WYSIWYG {
                 });
                 /// #endif
                 return;
+            }
+
+            if (window.siyuan.isPublish) {
+                const passwordButtonElement = hasClosestByClassName(event.target, "protyle-password__button");
+                if (passwordButtonElement) {
+                    fetchPost("/api/filetree/authFilePublishAccess", {
+                        id: passwordButtonElement.parentElement.parentElement.getAttribute("data-node-id"),
+                        password: passwordButtonElement.parentElement.querySelector("input").value
+                    }, (response) => {
+                        if (response.msg) {
+                            showMessage(response.msg);
+                        } else {
+                            reloadProtyle(protyle, true);
+                            /// #if !MOBILE
+                            getAllModels().outline.forEach(item => {
+                                if (item.blockId === protyle.block.rootID) {
+                                    fetchPost("/api/outline/getDocOutline", {
+                                        id: item.blockId,
+                                        preview: item.isPreview
+                                    }, response => {
+                                        item.update(response);
+                                    });
+                                }
+                            });
+                            /// #endif
+                        }
+                    });
+                    event.stopPropagation();
+                    return;
+                }
             }
 
             const embedItemElement = hasClosestByClassName(event.target, "protyle-wysiwyg__embed");
