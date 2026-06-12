@@ -731,24 +731,15 @@ var exitLock = sync.Mutex{}
 //
 // setCurrentWorkspace：是否将当前工作空间放到工作空间列表的最后一个
 //
-// execInstallPkg：是否执行新版本安装包
-//
-//	0：默认按照设置项 System.DownloadInstallPkg 检查并推送提示
-//	1：不执行新版本安装
-//	2：执行新版本安装
-//
 // 返回值 exitCode：
 //
 //	0：正常退出
 //	1：同步执行失败
-//	2：提示新安装包
-//
-// 当 force 为 true（强制退出）并且 execInstallPkg 为 0（默认检查更新）并且同步失败并且新版本安装版已经准备就绪时，执行新版本安装 https://github.com/siyuan-note/siyuan/issues/10288
-func Close(force, setCurrentWorkspace bool, execInstallPkg int) (exitCode int) {
+func Close(force, setCurrentWorkspace bool) (exitCode int) {
 	exitLock.Lock()
 	defer exitLock.Unlock()
 
-	logging.LogInfof("exiting kernel [force=%v, setCurrentWorkspace=%v, execInstallPkg=%d]", force, setCurrentWorkspace, execInstallPkg)
+	logging.LogInfof("exiting kernel [force=%v, setCurrentWorkspace=%v]", force, setCurrentWorkspace)
 	util.PushMsg(Conf.Language(95), 10000*60)
 	FlushTxQueue()
 
@@ -770,21 +761,6 @@ func Close(force, setCurrentWorkspace bool, execInstallPkg int) (exitCode int) {
 	sql.FlushQueue()
 
 	util.IsExiting.Store(true)
-	waitSecondForExecInstallPkg := false
-	newVerInstallPkgPath := getNewVerInstallPkgPath()
-	if !skipNewVerInstallPkg() && "" != newVerInstallPkgPath {
-		if 2 == execInstallPkg || (force && 0 == execInstallPkg) { // 执行新版本安装
-			waitSecondForExecInstallPkg = true
-			if gulu.OS.IsWindows() {
-				util.PushMsg(Conf.Language(130), 1000*30)
-			}
-			go execNewVerInstallPkg(newVerInstallPkgPath)
-		} else if 0 == execInstallPkg { // 新版本安装包已经准备就绪
-			exitCode = 2
-			logging.LogInfof("the new version install pkg is ready [%s], waiting for the user's next instruction", newVerInstallPkgPath)
-			return
-		}
-	}
 
 	Conf.Close()
 	sql.CloseDatabase()
@@ -810,14 +786,6 @@ func Close(force, setCurrentWorkspace bool, execInstallPkg int) (exitCode int) {
 	util.UnlockWorkspace()
 
 	time.Sleep(500 * time.Millisecond)
-	if waitSecondForExecInstallPkg {
-		// 桌面端退出拉起更新安装时有时需要重启两次 https://github.com/siyuan-note/siyuan/issues/6544
-		// 这里多等待一段时间，等待安装程序启动
-		if gulu.OS.IsWindows() {
-			time.Sleep(30 * time.Second)
-		}
-	}
-
 	closeSyncWebSocket()
 
 	go func() {

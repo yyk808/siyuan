@@ -49,14 +49,6 @@ export const about = {
       ${isMac() ? "" : `<option value="2" ${window.siyuan.config.system.autoLaunch2 === 2 ? "selected" : ""}>${window.siyuan.languages.autoLaunchMode2}</option>`}
     </select>    
 </div>
-<label class="fn__flex b3-label${isBrowser() || window.siyuan.config.system.isMicrosoftStore || window.siyuan.config.system.container !== "std" || "linux" === window.siyuan.config.system.os ? " fn__none" : ""}">
-    <div class="fn__flex-1">
-        ${window.siyuan.languages.autoDownloadUpdatePkg}
-        <div class="b3-label__text">${window.siyuan.languages.autoDownloadUpdatePkgTip}</div>
-    </div>
-    <div class="fn__space"></div>
-    <input class="b3-switch fn__flex-center" id="downloadInstallPkg" type="checkbox"${window.siyuan.config.system.downloadInstallPkg ? " checked" : ""}>
-</label>
 <div class="b3-label${isBrowser() ? " fn__none" : ""}">
     <label class="fn__flex config__item">
         <div class="fn__flex-1">
@@ -503,12 +495,6 @@ ${checkUpdateHTML}
         lockScreenModeElement.addEventListener("change", () => {
             fetchPost("/api/system/setFollowSystemLockScreen", {lockScreenMode: lockScreenModeElement.checked ? 1 : 0}, () => {
                 window.siyuan.config.system.lockScreenMode = lockScreenModeElement.checked ? 1 : 0;
-            });
-        });
-        const downloadInstallPkgElement = about.element.querySelector("#downloadInstallPkg") as HTMLInputElement;
-        downloadInstallPkgElement.addEventListener("change", () => {
-            fetchPost("/api/system/setDownloadInstallPkg", {downloadInstallPkg: downloadInstallPkgElement.checked}, () => {
-                window.siyuan.config.system.downloadInstallPkg = downloadInstallPkgElement.checked;
             });
         });
         /// #if !BROWSER
