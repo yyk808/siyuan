@@ -6,8 +6,9 @@ import {mermaidRender} from "../render/mermaidRender";
 import {mindmapRender} from "../render/mindmapRender";
 import {flowchartRender} from "../render/flowchartRender";
 import {plantumlRender} from "../render/plantumlRender";
-import {Constants} from "../../constants";
 import {htmlRender} from "../render/htmlRender";
+import {Constants} from "../../constants";
+import {escapeHtml} from "../../util/escape";
 
 export const processPasteCode = (html: string, text: string, originalTextHTML: string, protyle: IProtyle) => {
     const tempElement = document.createElement("div");
@@ -33,49 +34,40 @@ export const processPasteCode = (html: string, text: string, originalTextHTML: s
     }
 
     if (isCode) {
-        let code = text || html;
+        const code = text || html;
         if (/\n/.test(code)) {
             return protyle.lute.Md2BlockDOM(code);
         } else {
-            // Paste code from IDE no longer escape `<` and `>` https://github.com/siyuan-note/siyuan/issues/8340
-            code = code.replace("<", "&lt;").replace(">", "&gt;");
-            return "`" + code + "`";
+            // Paste code <&lt;div class="b3-dialog__action"&gt;> WithAll<XXX>() <div class="b3-dialog__action">
+            return `<span data-type="code" spellcheck="false">${Constants.ZWSP}${escapeHtml(code)}</span>`;
         }
     }
     return false;
 };
 
+const RENDER_MAP: Record<string, (previewPanel: Element) => void> = {
+    abc: abcRender,
+    plantuml: plantumlRender,
+    mermaid: mermaidRender,
+    flowchart: flowchartRender,
+    echarts: chartRender,
+    mindmap: mindmapRender,
+    graphviz: graphvizRender,
+    math: mathRender,
+};
+
 export const processRender = (previewPanel: Element) => {
     const language = previewPanel.getAttribute("data-subtype");
-    if (!Constants.SIYUAN_RENDER_CODE_LANGUAGES.includes(language) || previewPanel.getAttribute("data-type") !== "NodeHTMLBlock") {
-        abcRender(previewPanel);
-        htmlRender(previewPanel);
-        plantumlRender(previewPanel);
-        mermaidRender(previewPanel);
-        flowchartRender(previewPanel);
-        chartRender(previewPanel);
-        mindmapRender(previewPanel);
-        graphvizRender(previewPanel);
-        mathRender(previewPanel);
+    if (RENDER_MAP[language]) {
+        RENDER_MAP[language](previewPanel);
         return;
     }
-    if (language === "abc") {
-        abcRender(previewPanel);
-    } else if (language === "plantuml") {
-        plantumlRender(previewPanel);
-    } else if (language === "mermaid") {
-        mermaidRender(previewPanel);
-    } else if (language === "flowchart") {
-        flowchartRender(previewPanel);
-    } else if (language === "echarts") {
-        chartRender(previewPanel);
-    } else if (language === "mindmap") {
-        mindmapRender(previewPanel);
-    } else if (language === "graphviz") {
-        graphvizRender(previewPanel);
-    } else if (language === "math") {
-        mathRender(previewPanel);
-    } else if (previewPanel.getAttribute("data-type") === "NodeHTMLBlock") {
+    if (previewPanel.getAttribute("data-type") === "NodeHTMLBlock") {
         htmlRender(previewPanel);
+        return;
     }
+    for (const render of Object.values(RENDER_MAP)) {
+        render(previewPanel);
+    }
+    htmlRender(previewPanel);
 };

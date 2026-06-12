@@ -34,6 +34,16 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
+func GetBoxByName(name string) (ret *Box) {
+	for _, box := range Conf.GetOpenedBoxes() {
+		if box.Name == name {
+			ret = box
+			return
+		}
+	}
+	return
+}
+
 func CreateBox(name string) (id string, err error) {
 	name = util.RemoveInvalid(name)
 	if 512 < utf8.RuneCountInString(name) {
@@ -110,7 +120,7 @@ func RemoveBox(boxID string) (err error) {
 	defer boxLock.Delete(boxID)
 
 	if util.IsReservedFilename(boxID) {
-		return errors.New(fmt.Sprintf("can not remove [%s] caused by it is a reserved file", boxID))
+		return fmt.Errorf("can not remove [%s] caused by it is a reserved file", boxID)
 	}
 
 	FlushTxQueue()
@@ -123,12 +133,12 @@ func RemoveBox(boxID string) (err error) {
 		return
 	}
 	if !gulu.File.IsDir(localPath) {
-		return errors.New(fmt.Sprintf("can not remove [%s] caused by it is not a dir", boxID))
+		return fmt.Errorf("can not remove [%s] caused by it is not a dir", boxID)
 	}
 
 	if !isUserGuide {
 		var historyDir string
-		historyDir, err = GetHistoryDir(HistoryOpDelete)
+		historyDir, err = getHistoryDir(HistoryOpDelete)
 		if err != nil {
 			logging.LogErrorf("get history dir failed: %s", err)
 			return
@@ -155,7 +165,7 @@ func RemoveBox(boxID string) (err error) {
 				if removeErr := filelock.Remove(avFilePath); nil != removeErr {
 					logging.LogErrorf("remove av file [%s] failed: %s", avFilePath, removeErr)
 				} else {
-					logging.LogInfof("removed av file [%s]", avFilePath)
+					logging.LogDebugf("removed av file [%s]", avFilePath)
 				}
 			}
 		}

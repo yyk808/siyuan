@@ -282,7 +282,7 @@ func Doc2Heading(srcID, targetID string, after bool) (srcTreeBox, srcTreePath st
 	}
 	box.removeSort([]string{srcTree.ID})
 	evt := util.NewCmdResult("removeDoc", 0, util.PushModeBroadcast)
-	evt.Data = map[string]interface{}{
+	evt.Data = map[string]any{
 		"ids": []string{srcTree.ID},
 	}
 	util.PushEvent(evt)
@@ -399,6 +399,7 @@ func Heading2Doc(srcHeadingID, targetBoxID, targetPath, previousPath string) (sr
 	headingNode.SetIALAttr("type", "doc")
 	headingNode.SetIALAttr("id", srcHeadingID)
 	headingNode.SetIALAttr("title", headingText)
+	headingNode.RemoveIALAttr(DocHiddenAttr)
 	newTree.Root.KramdownIAL = headingNode.KramdownIAL
 
 	topLevel := treenode.TopHeadingLevel(newTree)

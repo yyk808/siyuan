@@ -25,6 +25,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+
 type Announcement struct {
 	Id     string `json:"id"`
 	Title  string `json:"title"`
@@ -43,9 +44,9 @@ func getAnnouncements() (ret []*Announcement) {
 		return
 	}
 
-	announcements := result["announcement"].([]interface{})
+	announcements := result["announcement"].([]any)
 	for _, announcement := range announcements {
-		ann := announcement.(map[string]interface{})
+		ann := announcement.(map[string]any)
 		ret = append(ret, &Announcement{
 			Id:     ann["id"].(string),
 			Title:  ann["title"].(string),

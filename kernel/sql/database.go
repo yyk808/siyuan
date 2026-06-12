@@ -149,7 +149,7 @@ func initDBTables() {
 	if err != nil {
 		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "drop table [blocks_fts] failed: %s", err)
 	}
-	_, err = db.Exec("CREATE VIRTUAL TABLE blocks_fts USING fts5(id UNINDEXED, parent_id UNINDEXED, root_id UNINDEXED, hash UNINDEXED, box UNINDEXED, path UNINDEXED, hpath, name, alias, memo, tag, content, fcontent, markdown UNINDEXED, length UNINDEXED, type UNINDEXED, subtype UNINDEXED, ial, sort UNINDEXED, created UNINDEXED, updated UNINDEXED, tokenize=\"siyuan\")")
+	_, err = db.Exec("CREATE VIRTUAL TABLE blocks_fts USING fts5(id UNINDEXED, parent_id UNINDEXED, root_id UNINDEXED, hash UNINDEXED, box UNINDEXED, path UNINDEXED, hpath UNINDEXED, name, alias, memo, tag, content, fcontent, markdown UNINDEXED, length UNINDEXED, type UNINDEXED, subtype UNINDEXED, ial, sort UNINDEXED, created UNINDEXED, updated UNINDEXED, tokenize=\"siyuan\")")
 	if err != nil {
 		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create table [blocks_fts] failed: %s", err)
 	}
@@ -158,7 +158,7 @@ func initDBTables() {
 	if err != nil {
 		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "drop table [blocks_fts_case_insensitive] failed: %s", err)
 	}
-	_, err = db.Exec("CREATE VIRTUAL TABLE blocks_fts_case_insensitive USING fts5(id UNINDEXED, parent_id UNINDEXED, root_id UNINDEXED, hash UNINDEXED, box UNINDEXED, path UNINDEXED, hpath, name, alias, memo, tag, content, fcontent, markdown UNINDEXED, length UNINDEXED, type UNINDEXED, subtype UNINDEXED, ial, sort UNINDEXED, created UNINDEXED, updated UNINDEXED, tokenize=\"siyuan case_insensitive\")")
+	_, err = db.Exec("CREATE VIRTUAL TABLE blocks_fts_case_insensitive USING fts5(id UNINDEXED, parent_id UNINDEXED, root_id UNINDEXED, hash UNINDEXED, box UNINDEXED, path UNINDEXED, hpath UNINDEXED, name, alias, memo, tag, content, fcontent, markdown UNINDEXED, length UNINDEXED, type UNINDEXED, subtype UNINDEXED, ial, sort UNINDEXED, created UNINDEXED, updated UNINDEXED, tokenize=\"siyuan case_insensitive\")")
 	if err != nil {
 		logging.LogFatalf(logging.ExitCodeUnavailableDatabase, "create table [blocks_fts_case_insensitive] failed: %s", err)
 	}
@@ -1003,12 +1003,12 @@ func deleteBlocksByIDs(tx *sql.Tx, ids []string) (err error) {
 		return
 	}
 
-	stmt = "DELETE FROM blocks_fts WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-
-	if !caseSensitive {
+	if caseSensitive {
+		stmt = "DELETE FROM blocks_fts WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
+		if err = execStmtTx(tx, stmt); err != nil {
+			return
+		}
+	} else {
 		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE ROWID IN (" + strings.Join(rowIDs, ",") + ")"
 		if err = execStmtTx(tx, stmt); err != nil {
 			return
@@ -1022,11 +1022,12 @@ func deleteBlocksByBoxTx(tx *sql.Tx, box string) (err error) {
 	if err = execStmtTx(tx, stmt, box); err != nil {
 		return
 	}
-	stmt = "DELETE FROM blocks_fts WHERE box = ?"
-	if err = execStmtTx(tx, stmt, box); err != nil {
-		return
-	}
-	if !caseSensitive {
+	if caseSensitive {
+		stmt = "DELETE FROM blocks_fts WHERE box = ?"
+		if err = execStmtTx(tx, stmt, box); err != nil {
+			return
+		}
+	} else {
 		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE box = ?"
 		if err = execStmtTx(tx, stmt, box); err != nil {
 			return
@@ -1116,16 +1117,17 @@ func deleteFileAnnotationRefsByBoxTx(tx *sql.Tx, box string) (err error) {
 	return
 }
 
-func deleteByRootID(tx *sql.Tx, rootID string, context map[string]interface{}) (err error) {
+func deleteByRootID(tx *sql.Tx, rootID string, context map[string]any) (err error) {
 	stmt := "DELETE FROM blocks WHERE root_id = ?"
 	if err = execStmtTx(tx, stmt, rootID); err != nil {
 		return
 	}
-	stmt = "DELETE FROM blocks_fts WHERE root_id = ?"
-	if err = execStmtTx(tx, stmt, rootID); err != nil {
-		return
-	}
-	if !caseSensitive {
+	if caseSensitive {
+		stmt = "DELETE FROM blocks_fts WHERE root_id = ?"
+		if err = execStmtTx(tx, stmt, rootID); err != nil {
+			return
+		}
+	} else {
 		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE root_id = ?"
 		if err = execStmtTx(tx, stmt, rootID); err != nil {
 			return
@@ -1156,7 +1158,7 @@ func deleteByRootID(tx *sql.Tx, rootID string, context map[string]interface{}) (
 	return
 }
 
-func batchDeleteByRootIDs(tx *sql.Tx, rootIDs []string, context map[string]interface{}) (err error) {
+func batchDeleteByRootIDs(tx *sql.Tx, rootIDs []string, context map[string]any) (err error) {
 	if 1 > len(rootIDs) {
 		return
 	}
@@ -1167,11 +1169,12 @@ func batchDeleteByRootIDs(tx *sql.Tx, rootIDs []string, context map[string]inter
 	if err = execStmtTx(tx, stmt); err != nil {
 		return
 	}
-	stmt = "DELETE FROM blocks_fts WHERE root_id IN " + ids
-	if err = execStmtTx(tx, stmt); err != nil {
-		return
-	}
-	if !caseSensitive {
+	if caseSensitive {
+		stmt = "DELETE FROM blocks_fts WHERE root_id IN " + ids
+		if err = execStmtTx(tx, stmt); err != nil {
+			return
+		}
+	} else {
 		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE root_id IN " + ids
 		if err = execStmtTx(tx, stmt); err != nil {
 			return
@@ -1207,11 +1210,12 @@ func batchDeleteByPathPrefix(tx *sql.Tx, boxID, pathPrefix string) (err error) {
 	if err = execStmtTx(tx, stmt, boxID, pathPrefix+"%"); err != nil {
 		return
 	}
-	stmt = "DELETE FROM blocks_fts WHERE box = ? AND path LIKE ?"
-	if err = execStmtTx(tx, stmt, boxID, pathPrefix+"%"); err != nil {
-		return
-	}
-	if !caseSensitive {
+	if caseSensitive {
+		stmt = "DELETE FROM blocks_fts WHERE box = ? AND path LIKE ?"
+		if err = execStmtTx(tx, stmt, boxID, pathPrefix+"%"); err != nil {
+			return
+		}
+	} else {
 		stmt = "DELETE FROM blocks_fts_case_insensitive WHERE box = ? AND path LIKE ?"
 		if err = execStmtTx(tx, stmt, boxID, pathPrefix+"%"); err != nil {
 			return
@@ -1241,44 +1245,72 @@ func batchDeleteByPathPrefix(tx *sql.Tx, boxID, pathPrefix string) (err error) {
 	return
 }
 
-func batchUpdatePath(tx *sql.Tx, tree *parse.Tree, context map[string]interface{}) (err error) {
-	ialContent := treenode.IALStr(tree.Root)
-	stmt := "UPDATE blocks SET box = ?, path = ?, hpath = ?, ial = ? WHERE root_id = ?"
-	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, ialContent, tree.ID); err != nil {
+func batchUpdatePath(tx *sql.Tx, tree *parse.Tree, context map[string]any) (err error) {
+	stmt := "UPDATE blocks SET box = ?, path = ?, hpath = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, tree.ID); err != nil {
 		return
 	}
-	stmt = "UPDATE blocks_fts SET box = ?, path = ?, hpath = ?, ial = ? WHERE root_id = ?"
-	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, ialContent, tree.ID); err != nil {
-		return
-	}
-	if !caseSensitive {
-		stmt = "UPDATE blocks_fts_case_insensitive SET box = ?, path = ?, hpath = ?, ial = ? WHERE root_id = ?"
-		if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, ialContent, tree.ID); err != nil {
+	if caseSensitive {
+		stmt = "UPDATE blocks_fts SET box = ?, path = ?, hpath = ? WHERE root_id = ?"
+		if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, tree.ID); err != nil {
+			return
+		}
+	} else {
+		stmt = "UPDATE blocks_fts_case_insensitive SET box = ?, path = ?, hpath = ? WHERE root_id = ?"
+		if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.HPath, tree.ID); err != nil {
 			return
 		}
 	}
+
+	stmt = "UPDATE spans SET box = ?, path = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.ID); err != nil {
+		return
+	}
+	stmt = "UPDATE assets SET box = ?, docpath = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.ID); err != nil {
+		return
+	}
+	stmt = "UPDATE refs SET box = ?, path = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.ID); err != nil {
+		return
+	}
+	stmt = "UPDATE refs SET def_block_path = ? WHERE def_block_root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Path, tree.ID); err != nil {
+		return
+	}
+	stmt = "UPDATE file_annotation_refs SET box = ?, path = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.ID); err != nil {
+		return
+	}
+	stmt = "UPDATE attributes SET box = ?, path = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.Box, tree.Path, tree.ID); err != nil {
+		return
+	}
+
 	ClearCache()
 	evtHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tree.ID)))[:7]
 	eventbus.Publish(eventbus.EvtSQLUpdateBlocksHPaths, context, 1, evtHash)
 	return
 }
 
-func batchUpdateHPath(tx *sql.Tx, tree *parse.Tree, context map[string]interface{}) (err error) {
-	ialContent := treenode.IALStr(tree.Root)
-	stmt := "UPDATE blocks SET hpath = ?, ial = ? WHERE root_id = ?"
-	if err = execStmtTx(tx, stmt, tree.HPath, ialContent, tree.ID); err != nil {
+func batchUpdateHPath(tx *sql.Tx, tree *parse.Tree, context map[string]any) (err error) {
+	stmt := "UPDATE blocks SET hpath = ? WHERE root_id = ?"
+	if err = execStmtTx(tx, stmt, tree.HPath, tree.ID); err != nil {
 		return
 	}
-	stmt = "UPDATE blocks_fts SET hpath = ?, ial = ? WHERE root_id = ?"
-	if err = execStmtTx(tx, stmt, tree.HPath, ialContent, tree.ID); err != nil {
-		return
-	}
-	if !caseSensitive {
-		stmt = "UPDATE blocks_fts_case_insensitive SET hpath = ?, ial = ? WHERE root_id = ?"
-		if err = execStmtTx(tx, stmt, tree.HPath, ialContent, tree.ID); err != nil {
+
+	if caseSensitive {
+		stmt = "UPDATE blocks_fts SET hpath = ? WHERE root_id = ?"
+		if err = execStmtTx(tx, stmt, tree.HPath, tree.ID); err != nil {
+			return
+		}
+	} else {
+		stmt = "UPDATE blocks_fts_case_insensitive SET hpath = ? WHERE root_id = ?"
+		if err = execStmtTx(tx, stmt, tree.HPath, tree.ID); err != nil {
 			return
 		}
 	}
+
 	ClearCache()
 	evtHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tree.ID)))[:7]
 	eventbus.Publish(eventbus.EvtSQLUpdateBlocksHPaths, context, 1, evtHash)
@@ -1299,7 +1331,7 @@ func CloseDatabase() {
 	logging.LogInfof("closed database")
 }
 
-func queryRow(query string, args ...interface{}) *sql.Row {
+func queryRow(query string, args ...any) *sql.Row {
 	query = strings.TrimSpace(query)
 	if "" == query {
 		logging.LogErrorf("statement is empty")
@@ -1312,7 +1344,7 @@ func queryRow(query string, args ...interface{}) *sql.Row {
 	return db.QueryRow(query, args...)
 }
 
-func queryTx(tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
+func queryTx(tx *sql.Tx, query string, args ...any) (*sql.Rows, error) {
 	query = strings.TrimSpace(query)
 	if "" == query {
 		return nil, errors.New("statement is empty")
@@ -1324,7 +1356,7 @@ func queryTx(tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
 	return tx.Query(query, args...)
 }
 
-func query(query string, args ...interface{}) (*sql.Rows, error) {
+func query(query string, args ...any) (*sql.Rows, error) {
 	query = strings.TrimSpace(query)
 	if "" == query {
 		return nil, errors.New("statement is empty")
@@ -1438,7 +1470,7 @@ func txCacheKey(tx *sql.Tx) string {
 	return fmt.Sprintf("%p", tx)
 }
 
-func prepareExecInsertTx(tx *sql.Tx, stmtSQL string, args []interface{}) (err error) {
+func prepareExecInsertTx(tx *sql.Tx, stmtSQL string, args []any) (err error) {
 	if tx == nil {
 		return fmt.Errorf("tx is nil")
 	}
@@ -1483,7 +1515,7 @@ func prepareExecInsertTx(tx *sql.Tx, stmtSQL string, args []interface{}) (err er
 	return
 }
 
-func execStmtTx(tx *sql.Tx, stmt string, args ...interface{}) (err error) {
+func execStmtTx(tx *sql.Tx, stmt string, args ...any) (err error) {
 	if _, err = tx.Exec(stmt, args...); err != nil {
 		tx.Rollback()
 		logging.LogErrorf("exec database stmt [%s] failed: %s\n  %s", stmt, err, logging.ShortStack())
@@ -1568,7 +1600,7 @@ func SQLTemplateFuncs(templateFuncMap *template.FuncMap) {
 		switch v := arg.(type) {
 		case string:
 			retBlock = GetBlock(v)
-		case map[string]interface{}:
+		case map[string]any:
 			if id, ok := v["id"]; ok {
 				retBlock = GetBlock(id.(string))
 			}
@@ -1582,7 +1614,7 @@ func SQLTemplateFuncs(templateFuncMap *template.FuncMap) {
 		retSpans = SelectSpansRawStmt(stmt, 512)
 		return
 	}
-	(*templateFuncMap)["querySQL"] = func(stmt string) (ret []map[string]interface{}) {
+	(*templateFuncMap)["querySQL"] = func(stmt string) (ret []map[string]any) {
 		ret, _ = Query(stmt, 1024)
 		return
 	}

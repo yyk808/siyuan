@@ -138,11 +138,11 @@ func HandleAssetsChangeEvent(assetAbsPath string) {
 func removeAssetThumbnail(assetAbsPath string) {
 	if util.IsCompressibleAssetImage(assetAbsPath) {
 		p := filepath.ToSlash(assetAbsPath)
-		idx := strings.Index(p, "assets/")
-		if -1 == idx {
+		_, after, found := strings.Cut(p, "assets/")
+		if !found {
 			return
 		}
-		thumbnailPath := filepath.Join(util.TempDir, "thumbnails", "assets", p[idx+7:])
+		thumbnailPath := filepath.Join(util.TempDir, "thumbnails", "assets", after)
 		os.RemoveAll(thumbnailPath)
 	}
 }
@@ -227,6 +227,9 @@ func DocAssets(rootID string) (ret []string, err error) {
 }
 
 func NetAssets2LocalAssets(rootID string, onlyImg bool, originalURL string) (err error) {
+	syncingFiles.Store(rootID, true)
+	defer syncingFiles.Delete(rootID)
+
 	tree, err := LoadTreeByBlockID(rootID)
 	if err != nil {
 		return
@@ -241,6 +244,10 @@ func NetAssets2LocalAssets(rootID string, onlyImg bool, originalURL string) (err
 	}
 
 	err = netAssets2LocalAssets0(tree, onlyImg, originalURL, assetsDirPath, true)
+	go func() {
+		time.Sleep(128 * time.Microsecond)
+		util.PushReloadProtyle(rootID)
+	}()
 	return
 }
 
@@ -553,7 +560,7 @@ func GetAssetAbsPath(relativePath string) (string, error) {
 	if secondErr != nil {
 		return "", secondErr
 	}
-	return "", errors.New(fmt.Sprintf(Conf.Language(12), relativePath))
+	return "", fmt.Errorf(Conf.Language(12), relativePath)
 }
 
 func getAssetAbsPath(relativePath string) (absPath string, err error) {
@@ -561,7 +568,7 @@ func getAssetAbsPath(relativePath string) (absPath string, err error) {
 	// 在 data 文件夹下搜索，主要是 data/assets 文件夹
 	p := filepath.Join(util.DataDir, relativePath)
 	if gulu.File.IsExist(p) {
-		if !util.IsSubPath(util.WorkspaceDir, p) {
+		if !gulu.File.IsSubPath(util.WorkspaceDir, p) {
 			return "", fmt.Errorf("[%s] is not sub path of workspace", p)
 		}
 		return p, nil
@@ -594,7 +601,7 @@ func getAssetAbsPath(relativePath string) (absPath string, err error) {
 		})
 
 		if "" != absPath {
-			if !util.IsSubPath(util.WorkspaceDir, absPath) {
+			if !gulu.File.IsSubPath(util.WorkspaceDir, absPath) {
 				return "", fmt.Errorf("[%s] is not sub path of workspace", absPath)
 			}
 			return absPath, nil
@@ -747,7 +754,7 @@ func uploadAssets2Cloud(assetPaths []string, bizType string, ignorePushMsg bool)
 
 		if 0 != requestResult.Code {
 			logging.LogErrorf("upload assets failed: %s", requestResult.Msg)
-			err = errors.New(fmt.Sprintf(Conf.Language(94), requestResult.Msg))
+			err = fmt.Errorf(Conf.Language(94), requestResult.Msg)
 			return
 		}
 
@@ -780,7 +787,7 @@ func RemoveUnusedAssets() (ret []string) {
 
 	unusedAssets := UnusedAssets(false)
 
-	historyDir, err := GetHistoryDir(HistoryOpClean)
+	historyDir, err := getHistoryDir(HistoryOpClean)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
 		return
@@ -850,7 +857,7 @@ func RemoveUnusedAsset(p string) (ret string) {
 		return absPath
 	}
 
-	historyDir, err := GetHistoryDir(HistoryOpClean)
+	historyDir, err := getHistoryDir(HistoryOpClean)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
 		return
@@ -935,6 +942,11 @@ func RenameAsset(oldPath, newName string) (newPath string, err error) {
 		return
 	}
 
+	historyDir, err := getHistoryDir(HistoryOpReplace)
+	if nil != err {
+		return
+	}
+
 	luteEngine := util.NewLute()
 	for _, notebook := range notebooks {
 		pages := pagedPaths(filepath.Join(util.DataDir, notebook.ID), 32)
@@ -967,6 +979,7 @@ func RenameAsset(oldPath, newName string) (newPath string, err error) {
 					continue
 				}
 
+				generateTreeHistory(tree, historyDir)
 				treenode.UpsertBlockTree(tree)
 				sql.UpsertTreeQueue(tree)
 
@@ -974,6 +987,7 @@ func RenameAsset(oldPath, newName string) (newPath string, err error) {
 			}
 		}
 	}
+	indexHistoryDir(filepath.Base(historyDir), util.NewLute())
 
 	storageAvDir := filepath.Join(util.DataDir, "storage", "av")
 	if gulu.File.IsDir(storageAvDir) {
@@ -1176,10 +1190,7 @@ func UnusedAssets(sorted bool) (ret []*UnusedItem) {
 		} else {
 			p = strings.TrimPrefix(assetAbsPath, filepath.Dir(dataAssetsAbsPath))
 		}
-		p = filepath.ToSlash(p)
-		if strings.HasPrefix(p, "/") {
-			p = p[1:]
-		}
+		p = strings.TrimPrefix(filepath.ToSlash(p), "/")
 		name := path.Base(p)
 
 		var modTime time.Time
@@ -1300,12 +1311,15 @@ func emojisInTree(tree *parse.Tree) (ret []string) {
 		}
 		if ast.NodeEmojiImg == n.Type {
 			tokens := n.Tokens
-			idx := bytes.Index(tokens, []byte("src=\""))
-			if -1 == idx {
+			_, src, found := bytes.Cut(tokens, []byte("src=\""))
+			if !found {
 				return ast.WalkContinue
 			}
-			src := tokens[idx+len("src=\""):]
-			src = src[:bytes.Index(src, []byte("\""))]
+			idx := bytes.Index(src, []byte("\""))
+			if idx == -1 {
+				return ast.WalkContinue
+			}
+			src = src[:idx]
 			ret = append(ret, string(src))
 		}
 		return ast.WalkContinue

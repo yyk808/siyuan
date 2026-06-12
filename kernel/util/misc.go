@@ -23,16 +23,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/88250/lute/html"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/siyuan-note/logging"
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 func GetDuplicateName(master string) (ret string) {
 	if "" == master {
@@ -40,7 +36,7 @@ func GetDuplicateName(master string) (ret string) {
 	}
 
 	ret = master + " (1)"
-	r := regexp.MustCompile("^(.*) \\((\\d+)\\)$")
+	r := regexp.MustCompile(`^(.*) \((\d+)\)$`)
 	m := r.FindStringSubmatch(master)
 	if nil == m || 3 > len(m) {
 		return
@@ -216,19 +212,9 @@ func GetContainsSubStrs(s string, subStrs []string) (ret []string) {
 	return
 }
 
-func ReplaceStr(strs []string, old, new string) (ret []string, changed bool) {
-	if old == new {
-		return strs, false
-	}
-
-	for i, v := range strs {
-		if v == old {
-			strs[i] = new
-			changed = true
-		}
-	}
-	ret = strs
-	return
+func SanitizeHTML(h string) string {
+	p := bluemonday.UGCPolicy()
+	return p.Sanitize(h)
 }
 
 func SanitizeSVG(svgInput string) string {
@@ -247,6 +233,9 @@ func SanitizeSVG(svgInput string) string {
 			next := c.NextSibling
 			if c.Type == html.ElementNode {
 				tag := strings.ToLower(c.Data)
+				if i := strings.LastIndex(tag, ":"); i >= 0 {
+					tag = tag[i+1:]
+				}
 				if tag == "script" || tag == "iframe" || tag == "object" || tag == "embed" || tag == "foreignobject" || "animate" == tag ||
 					"animatetransform" == tag || "animatecolor" == tag || "animatemotion" == tag || "set" == tag {
 					n.RemoveChild(c)

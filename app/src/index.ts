@@ -24,7 +24,7 @@ import {
     transactionError
 } from "./dialog/processSystem";
 import {initMessage, showMessage} from "./dialog/message";
-import {getAllTabs} from "./layout/getAll";
+import {getAllModels, getAllTabs} from "./layout/getAll";
 import {getLocalStorage, isChromeBrowser, isInMobileApp} from "./protyle/util/compatibility";
 import {getSearch, isBrowser} from "./util/functions";
 import {checkPublishServiceClosed} from "./util/processMessage";
@@ -40,7 +40,6 @@ import {ipcRenderer} from "electron";
 /// #endif
 import {getDockByType} from "./layout/tabUtil";
 import {Tag} from "./layout/dock/Tag";
-import {updateControlAlt} from "./protyle/util/hotKey";
 import {updateAppearance} from "./config/util/updateAppearance";
 import {renderSnippet} from "./config/util/snippets";
 
@@ -132,7 +131,18 @@ export class App {
                                 break;
                             case "setConf":
                                 window.siyuan.config = data.data;
-                                updateControlAlt();
+                                break;
+                            case "setPublish":
+                                window.siyuan.config.publish = data.data;
+                                if (!window.siyuan.config.publish.enable) {
+                                    getAllModels().files.forEach(item => {
+                                        item.element.classList.remove("file-tree__publish-access--active");
+                                        item.element.querySelectorAll(".b3-list-item__icon").forEach(iconItem => {
+                                            iconItem.classList.remove("fn__none");
+                                            iconItem.nextElementSibling.classList.add("fn__none");
+                                        });
+                                    });
+                                }
                                 break;
                             case "progress":
                                 progressLoading(data);
@@ -187,7 +197,7 @@ export class App {
                                 downloadProgress(data.data);
                                 break;
                             case "txerr":
-                                transactionError();
+                                transactionError(data.msg);
                                 break;
                             case "syncing":
                                 processSync(data, this.plugins);
@@ -219,7 +229,6 @@ export class App {
             addScriptSync(`${Constants.PROTYLE_CDN}/js/lute/lute.min.js?v=${Constants.SIYUAN_VERSION}`, "protyleLuteScript");
             addScript(`${Constants.PROTYLE_CDN}/js/protyle-html.js?v=${Constants.SIYUAN_VERSION}`, "protyleWcHtmlScript");
             window.siyuan.config = response.data.conf;
-            updateControlAlt();
             window.siyuan.isPublish = response.data.isPublish;
             await loadPlugins(this);
             getLocalStorage(() => {

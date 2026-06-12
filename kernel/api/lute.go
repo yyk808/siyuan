@@ -84,7 +84,10 @@ func html2BlockDOM(c *gin.Context) {
 		return
 	}
 
-	dom := arg["dom"].(string)
+	var dom string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("dom", &dom, true, false)) {
+		return
+	}
 	luteEngine := util.NewLute()
 	luteEngine.SetHTMLTag2TextMark(true)
 	luteEngine.SetHTML2MarkdownAttrs([]string{"alias", "memo", "bookmark", "custom-*"})
@@ -207,11 +210,14 @@ func spinBlockDOM(c *gin.Context) {
 		return
 	}
 
-	dom := arg["dom"].(string)
+	var dom string
+	if !util.ParseJsonArgs(arg, ret, util.BindJsonArg("dom", &dom, true, false)) {
+		return
+	}
 	luteEngine := model.NewLute()
 
 	dom = luteEngine.SpinBlockDOM(dom)
-	ret.Data = map[string]interface{}{
+	ret.Data = map[string]any{
 		"dom": dom,
 	}
 }

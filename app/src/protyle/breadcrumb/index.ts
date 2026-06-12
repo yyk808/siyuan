@@ -572,6 +572,9 @@ ${padHTML}
     }
 
     public render(protyle: IProtyle, update = false, nodeElement?: Element | false) {
+        if (protyle.element.getAttribute("disabled-forever") === "true") {
+            return;
+        }
         /// #if !MOBILE
         let range: Range;
         let blockElement: Element;

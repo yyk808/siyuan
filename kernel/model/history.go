@@ -235,14 +235,19 @@ func RollbackDocHistory(boxID, historyPath string) (err error) {
 
 	FlushTxQueue()
 
+	box, needResetTree, err := getRollbackBox(boxID)
+	if err != nil {
+		logging.LogErrorf("get rollback box [%s] failed: %s", boxID, err)
+		return
+	}
+	boxID = box.ID
+
 	srcPath := historyPath
 	var destPath, parentHPath string
 	rootID := util.GetTreeID(historyPath)
 	workingDoc := treenode.GetBlockTree(rootID)
-	if nil != workingDoc && "d" == workingDoc.Type {
-		if err = filelock.Remove(filepath.Join(util.DataDir, boxID, workingDoc.Path)); err != nil {
-			return
-		}
+	if needResetTree {
+		workingDoc = nil
 	}
 
 	destPath, parentHPath, err = getRollbackDockPath(boxID, historyPath, workingDoc)
@@ -278,7 +283,18 @@ func RollbackDocHistory(boxID, historyPath string) (err error) {
 	tree.Path = filepath.ToSlash(strings.TrimPrefix(destPath, util.DataDir+string(os.PathSeparator)+boxID))
 	tree.HPath = parentHPath + "/" + tree.Root.IALAttr("title")
 
+	if needResetTree {
+		resetTree(tree, "", true)
+	}
+
 	// 重置重复的块 ID https://github.com/siyuan-note/siyuan/issues/14358
+	if nil != workingDoc && "d" == workingDoc.Type {
+		workingDocPath := filepath.Join(util.DataDir, boxID, workingDoc.Path)
+		if err = filelock.Remove(workingDocPath); err != nil {
+			return
+		}
+		logging.LogInfof("removed working doc file [%s]", workingDocPath)
+	}
 	if nil != workingDoc {
 		treenode.RemoveBlockTreesByRootID(rootID)
 	}
@@ -292,7 +308,7 @@ func RollbackDocHistory(boxID, historyPath string) (err error) {
 		return ast.WalkContinue
 	})
 	var ids []string
-	for nodeID, _ := range nodes {
+	for nodeID := range nodes {
 		ids = append(ids, nodeID)
 	}
 	idMap := treenode.ExistBlockTrees(ids)
@@ -319,8 +335,9 @@ func RollbackDocHistory(boxID, historyPath string) (err error) {
 	}
 	ReloadFiletree()
 	ReloadProtyle(rootID)
-	util.PushMsg(Conf.Language(102), 3000)
 
+	msg := fmt.Sprintf(Conf.Language(286), path.Join(box.Name, tree.HPath))
+	util.PushMsg(msg, 7000)
 	IncSync()
 
 	// 刷新属性视图
@@ -341,7 +358,7 @@ func RollbackDocHistory(boxID, historyPath string) (err error) {
 		// 刷新页签名
 		refText := getNodeRefText(tree.Root)
 		evt := util.NewCmdResult("rename", 0, util.PushModeBroadcast)
-		evt.Data = map[string]interface{}{
+		evt.Data = map[string]any{
 			"box":     boxID,
 			"id":      tree.Root.ID,
 			"path":    tree.Path,
@@ -422,7 +439,7 @@ func RollbackNotebookHistory(historyPath string) (err error) {
 		return
 	}
 
-	FullReindex()
+	FullReindex(true)
 	IncSync()
 	return nil
 }
@@ -533,7 +550,8 @@ func buildSearchHistoryQueryFilter(query, op, box, table string, typ int) (stmt 
 	} else {
 		stmt += "1=1"
 	}
-	if "all" != op {
+
+	if op = strings.TrimSpace(op); op != "" && op != "all" {
 		stmt += " AND op = '" + op + "'"
 	}
 
@@ -615,7 +633,7 @@ func generateAssetsHistory() {
 		return
 	}
 
-	historyDir, err := GetHistoryDir(HistoryOpUpdate)
+	historyDir, err := getHistoryDir(HistoryOpUpdate)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
 		return
@@ -644,7 +662,7 @@ func (box *Box) generateDocHistory0() {
 		return
 	}
 
-	historyDir, err := GetHistoryDir(HistoryOpUpdate)
+	historyDir, err := getHistoryDir(HistoryOpUpdate)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
 		return
@@ -791,34 +809,6 @@ func recentModifiedAssets() (ret []string) {
 	return
 }
 
-var attributeViewLatestHistoryTime = time.Now().Unix()
-
-func recentModifiedAttributeViews() (ret []string) {
-	entries, err := os.ReadDir(filepath.Join(util.DataDir, "storage", "av"))
-	if nil != err {
-		logging.LogErrorf("read attribute view dir failed: %s", err)
-		return
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-
-		info, err := entry.Info()
-		if nil != err {
-			logging.LogErrorf("read attribute view file info failed: %s", err)
-			continue
-		}
-
-		if info.ModTime().Unix() > attributeViewLatestHistoryTime {
-			ret = append(ret, filepath.Join(util.DataDir, "storage", "av", entry.Name()))
-		}
-	}
-	attributeViewLatestHistoryTime = time.Now().Unix()
-	return
-}
-
 const (
 	HistoryOpClean   = "clean"
 	HistoryOpUpdate  = "update"
@@ -830,13 +820,21 @@ const (
 )
 
 func generateOpTypeHistory(tree *parse.Tree, opType string) {
-	historyDir, err := GetHistoryDir(opType)
+	historyDir, err := getHistoryDir(opType)
 	if err != nil {
 		logging.LogErrorf("get history dir failed: %s", err)
 		return
 	}
 
+	generateTreeHistory(tree, historyDir)
+	generateAvHistoryInTree(tree, historyDir)
+
+	indexHistoryDir(filepath.Base(historyDir), util.NewLute())
+}
+
+func generateTreeHistory(tree *parse.Tree, historyDir string) {
 	historyPath := filepath.Join(historyDir, tree.Box, tree.Path)
+	var err error
 	if err = os.MkdirAll(filepath.Dir(historyPath), 0755); err != nil {
 		logging.LogErrorf("generate history failed: %s", err)
 		return
@@ -852,10 +850,7 @@ func generateOpTypeHistory(tree *parse.Tree, opType string) {
 		logging.LogErrorf("generate history failed: %s", err)
 		return
 	}
-
-	generateAvHistoryInTree(tree, historyDir)
-
-	indexHistoryDir(filepath.Base(historyDir), util.NewLute())
+	return
 }
 
 func generateAvHistoryInTree(tree *parse.Tree, historyDir string) {
@@ -869,12 +864,8 @@ func generateAvHistoryInTree(tree *parse.Tree, historyDir string) {
 	}
 }
 
-func GetHistoryDir(suffix string) (ret string, err error) {
-	return getHistoryDir(suffix, time.Now())
-}
-
-func getHistoryDir(suffix string, t time.Time) (ret string, err error) {
-	ret = filepath.Join(util.HistoryDir, t.Format("2006-01-02-150405")+"-"+suffix)
+func getHistoryDir(suffix string) (ret string, err error) {
+	ret = filepath.Join(util.HistoryDir, time.Now().Format("2006-01-02-150405")+"-"+suffix)
 	if err = os.MkdirAll(ret, 0755); err != nil {
 		logging.LogErrorf("make history dir failed: %s", err)
 		return
@@ -1049,4 +1040,30 @@ func subscribeSQLHistoryEvents() {
 	eventbus.Subscribe(util.EvtSQLHistoryRebuild, func() {
 		ReindexHistory()
 	})
+}
+
+func getRollbackBox(boxID string) (ret *Box, created bool, err error) {
+	ret = Conf.Box(boxID)
+	if nil == ret {
+		boxName := "Rollback"
+		ret = GetBoxByName(boxName)
+		if nil == ret {
+			var id string
+			id, err = CreateBox(boxName)
+			if nil != err {
+				return
+			}
+			_, err = Mount(id)
+			if nil != err {
+				return
+			}
+			ret = Conf.Box(id)
+			created = true
+		}
+	}
+	if nil == ret {
+		err = errors.New("can not get or create rollback box")
+		return
+	}
+	return
 }

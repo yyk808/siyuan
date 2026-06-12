@@ -11,7 +11,6 @@ import {App} from "../../index";
 import {reloadPlugin} from "../../plugin/loader";
 import {reloadEmoji} from "../../emoji";
 import {setLocalShorthandCount} from "../../util/noRelyPCFunction";
-import {updateControlAlt} from "../../protyle/util/hotKey";
 import {renderSnippet} from "../../config/util/snippets";
 import {redirectToCheckAuth} from "../../util/pathName";
 
@@ -67,7 +66,10 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
             case "setConf":
                 window.siyuan.config = data.data;
-                updateControlAlt();
+                break;
+            case "setPublish":
+                window.siyuan.config.publish = data.data;
+                setPublish();
                 break;
             case "reloaddoc":
                 reloadSync(this, {upsertRootIDs: [data.data], removeRootIDs: []}, false, false, true);
@@ -88,7 +90,7 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 openMobileFileById(app, data.data.id);
                 break;
             case"txerr":
-                transactionError();
+                transactionError(data.msg);
                 break;
             case"statusbar":
                 if (!document.querySelector("#keyboardToolbar").classList.contains("fn__none") ||
@@ -104,4 +106,19 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
         }
     }
+};
+
+const setPublish = () => {
+    const accessElement = window.siyuan.mobile.docks.file.element.previousElementSibling.querySelector('[data-type="publish-access"]');
+    if (!window.siyuan.config.publish.enable) {
+        accessElement.classList.remove("block__icon--active");
+        accessElement.classList.add("fn__none");
+        window.siyuan.mobile.docks.file.element.querySelectorAll(".b3-list-item__icon").forEach(item => {
+            item.classList.remove("fn__none");
+            item.nextElementSibling.classList.add("fn__none");
+        });
+    } else {
+        accessElement.classList.remove("fn__none");
+    }
+
 };

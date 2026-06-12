@@ -636,7 +636,7 @@ export class WYSIWYG {
                             showMessage(window.siyuan.languages.crossKeepLazyLoad);
                         }
                         selectElements.forEach(item => {
-                            if (!hasClosestByClassName(currentElement, "protyle-wysiwyg--select")) {
+                            if (!hasClosestByClassName(item, "protyle-wysiwyg--select")) {
                                 item.classList.add("protyle-wysiwyg--select");
                                 ids.push(item.getAttribute("data-node-id"));
                                 // 清除选中的子块 https://ld246.com/article/1667826582251
@@ -1515,6 +1515,7 @@ export class WYSIWYG {
                                                 selectCellElements[0].colSpan = colSpan;
                                                 selectCellElements[0].rowSpan = rowSpan;
                                                 focusByWbr(selectCellElements[0], document.createRange());
+                                                document.execCommand("insertHTML", false, "");
                                                 updateTransaction(protyle, tableBlockElement.getAttribute("data-node-id"), tableBlockElement.outerHTML, oldHTML);
                                             }
                                         });
@@ -2517,7 +2518,10 @@ export class WYSIWYG {
                         input(protyle, blockElement, range, true, event);
                     }, Constants.TIMEOUT_INPUT);
                 } else {
-                    input(protyle, blockElement, range, true, event);
+                    clearTimeout(timeout); // https://github.com/siyuan-note/siyuan/issues/9179
+                    timeout = window.setTimeout(() => {
+                        input(protyle, blockElement, range, true, event);
+                    });
                 }
             }
             event.stopPropagation();
@@ -3053,9 +3057,11 @@ export class WYSIWYG {
                                 if (actionElement.parentElement.classList.contains("protyle-task--done")) {
                                     actionElement.querySelector("use").setAttribute("xlink:href", "#iconUncheck");
                                     actionElement.parentElement.classList.remove("protyle-task--done");
+                                    actionElement.parentElement.setAttribute("data-task", " ");
                                 } else {
                                     actionElement.querySelector("use").setAttribute("xlink:href", "#iconCheck");
                                     actionElement.parentElement.classList.add("protyle-task--done");
+                                    actionElement.parentElement.setAttribute("data-task", "X");
                                 }
                                 actionElement.parentElement.setAttribute("updated", dayjs().format("YYYYMMDDHHmmss"));
                                 updateTransaction(protyle, actionId, actionElement.parentElement.outerHTML, html);

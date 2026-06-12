@@ -118,21 +118,20 @@ export class Files extends Model {
         });
         options.tab.panelElement.classList.add("fn__flex-column", "file-tree", "sy__file", "dockPanel");
         options.tab.panelElement.innerHTML = `<div class="block__icons">
-    <div class="block__logo">
+    <div class="block__logo fn__flex-1">
         <svg class="block__logoicon"><use xlink:href="#iconFiles"></use></svg>${window.siyuan.languages.fileTree}
     </div>
-    <span class="fn__flex-1 fn__space"></span>
-    <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.siyuan.languages.selectOpen1}${updateHotkeyAfterTip(window.siyuan.config.keymap.general.selectOpen1.custom)}"><svg><use xlink:href='#iconFocus'></use></svg></span>
+    <span data-type="focus" class="block__icon ariaLabel" data-position="north" aria-label="${window.siyuan.languages.selectOpen1}${updateHotkeyAfterTip(window.siyuan.config.keymap.general.selectOpen1.custom)}"><svg><use xlink:href='#iconFocus'></use></svg></span>
     <span class="fn__space"></span>
-    <span data-type="collapse" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.siyuan.languages.collapse}${updateHotkeyAfterTip(window.siyuan.config.keymap.editor.general.collapse.custom)}">
+    <span data-type="collapse" class="block__icon ariaLabel" data-position="north" aria-label="${window.siyuan.languages.collapse}${updateHotkeyAfterTip(window.siyuan.config.keymap.editor.general.collapse.custom)}">
         <svg><use xlink:href="#iconContract"></use></svg>
     </span>
     <div class="fn__space${window.siyuan.config.readonly ? " fn__none" : ""}"></div>
-    <div data-type="more" class="b3-tooltips b3-tooltips__sw block__icon${window.siyuan.config.readonly ? " fn__none" : ""}" aria-label="${window.siyuan.languages.more}">
+    <div data-type="more" class="ariaLabel block__icon${window.siyuan.config.readonly ? " fn__none" : ""}" data-position="north" aria-label="${window.siyuan.languages.more}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </div> 
     <span class="fn__space"></span>
-    <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="${window.siyuan.languages.min}${updateHotkeyAfterTip(window.siyuan.config.keymap.general.closeTab.custom)}"><svg><use xlink:href='#iconMin'></use></svg></span>
+    <span data-type="min" class="block__icon ariaLabel" data-position="north" aria-label="${window.siyuan.languages.min}${updateHotkeyAfterTip(window.siyuan.config.keymap.general.closeTab.custom)}"><svg><use xlink:href='#iconMin'></use></svg></span>
 </div>
 <div class="fn__flex-1" style="padding-top: 2px;"></div>
 <ul class="b3-list fn__flex-column" style="min-height: auto;height:30px;transition: height  .2s cubic-bezier(0, 0, .2, 1) 0ms">
@@ -914,6 +913,7 @@ data-type="navigation-root" data-path="/">
         let html = "";
         let closeHtml = "";
         let closeCounter = 0;
+        const scrollTop = this.element.scrollTop;
         window.siyuan.notebooks.forEach((item) => {
             if (item.closed) {
                 closeCounter++;
@@ -931,10 +931,11 @@ data-type="navigation-root" data-path="/">
         } else {
             this.closeElement.classList.add("fn__none");
         }
-        window.siyuan.storage[Constants.LOCAL_FILESPATHS].forEach((item: IFilesPath) => {
-            item.openPaths.forEach((openPath) => {
-                this.selectItem(item.notebookId, openPath, undefined, false, false);
-            });
+        window.siyuan.storage[Constants.LOCAL_FILESPATHS].forEach(async (item: IFilesPath) => {
+            for (const openPath of item.openPaths) {
+                await this.selectItem(item.notebookId, openPath, undefined, false, false);
+            }
+            this.element.scrollTop = scrollTop;
         });
         this.refreshPublishAccessSwitch();
         if (!init) {
@@ -1061,7 +1062,7 @@ data-type="navigation-root" data-path="/">
         if (!fileItemElement) {
             return;
         }
-        fileItemElement.setAttribute("data-name", Lute.EscapeHTMLStr(data.title));
+        fileItemElement.setAttribute("data-name", data.title);
         fileItemElement.querySelector(".b3-list-item__text").innerHTML = escapeHtml(data.title);
     }
 
@@ -1356,7 +1357,7 @@ class="b3-list-item b3-list-item--hide-action" data-path="${item.path}">
     <span class="b3-list-item__icon b3-tooltips b3-tooltips__n popover__block${editingPublishAccess ? " fn__none" : ""}" data-id="${item.id}" aria-label="${window.siyuan.languages.changeIcon}">${unicode2Emoji(item.icon || (item.subFileCount === 0 ? window.siyuan.storage[Constants.LOCAL_IMAGES].file : window.siyuan.storage[Constants.LOCAL_IMAGES].folder))}</span>
     <span class="b3-list-item__switch b3-tooltips b3-tooltips__n${editingPublishAccess ? "" : " fn__none"}" aria-label="${window.siyuan.languages.publishAccess}">${getPublishAccessOptionByLevel("public").iconHTML}</span>
     <span class="b3-list-item__text ariaLabel" data-position="parentE"
-aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
+aria-label="${ariaLabel}">${getDisplayName(Lute.EscapeHTMLStr(item.name), true, true)}</span>
     <span data-type="more-file" class="b3-list-item__action b3-tooltips b3-tooltips__nw" aria-label="${window.siyuan.languages.more}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </span>
@@ -1426,6 +1427,7 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
                         item.classList.toggle("fn__none", editingPublishAccess);
                         item.nextElementSibling.classList.toggle("fn__none", !editingPublishAccess);
                     });
+                    this.refreshPublishAccessSwitch();
                 }
             }).element);
         }
@@ -1433,7 +1435,8 @@ aria-label="${ariaLabel}">${getDisplayName(item.name, true, true)}</span>
     }
 
     private refreshPublishAccessSwitch() {
-        if (window.siyuan.config.readonly || window.siyuan.isPublish) {
+        if (window.siyuan.config.readonly || window.siyuan.isPublish ||
+            !this.element.classList.contains("file-tree__publish-access--active")) {
             return;
         }
         const ids: string[] = [];

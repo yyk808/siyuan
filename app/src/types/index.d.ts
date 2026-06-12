@@ -1,7 +1,8 @@
 type TPluginDockPosition = "LeftTop" | "LeftBottom" | "RightTop" | "RightBottom" | "BottomLeft" | "BottomRight"
 type TDockPosition = "Left" | "Right" | "Bottom"
-type TWS = "main" | "filetree" | "protyle"
+type TWS = "main" | "filetree" | "protyle" | "backlink" | "bookmark" | "graph" | "outline" | "tag"
 type TDock = "file" | "outline" | "inbox" | "bookmark" | "tag" | "graph" | "globalGraph" | "backlink"
+type TTab = "Outline" | "Graph" | "Backlink" | "Asset" | "Editor" | "Search" | "siyuan-card"
 type TOperation =
     "insert"
     | "update"
@@ -153,7 +154,7 @@ interface CSSStyleDeclarationElectron extends CSSStyleDeclaration {
 
 interface Window {
     DOMPurify: {
-        sanitize(dirty: string): string;
+        sanitize(dirty: string, options?: any): string;
     };
     echarts: {
         init(element: Element, theme?: string, options?: {
@@ -298,7 +299,7 @@ interface Window {
 
     reconnectWebSocket(): void;
 
-    showKeyboardToolbar(height: number): void;
+    showKeyboardToolbar(): void;
 
     processIOSPurchaseResponse(code: number): void;
 
@@ -511,6 +512,7 @@ interface ISiyuan {
     emojis?: IEmoji[],
     backStack?: IBackStack[],
     mobile?: {
+        touchRange?: Range
         size: {
             isLandscape?: boolean,
             landscape?: {
