@@ -746,10 +746,19 @@ func Close(force, setCurrentWorkspace bool) (exitCode int) {
 	if !force {
 		if Conf.Sync.Enabled && 3 != Conf.Sync.Mode &&
 			((IsSubscriber() && conf.ProviderSiYuan == Conf.Sync.Provider) || conf.ProviderSiYuan != Conf.Sync.Provider) {
-			syncData(true, false)
-			if 0 != ExitSyncSucc {
-				exitCode = 1
-				return
+			const exitSyncTimeout = 30 * time.Second
+			done := make(chan struct{})
+			go func() {
+				syncData(true, false)
+				close(done)
+			}()
+			select {
+			case <-done:
+				if 0 != ExitSyncSucc {
+					logging.LogWarnf("exit sync failed, proceeding with exit")
+				}
+			case <-time.After(exitSyncTimeout):
+				logging.LogWarnf("exit sync timed out after %s, proceeding with exit", exitSyncTimeout)
 			}
 		}
 	}
